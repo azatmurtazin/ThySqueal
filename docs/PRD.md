@@ -1,0 +1,95 @@
+# Product Requirements Document: ThySqueal
+
+## Overview
+
+ThySqueal is a lightweight JSON-over-HTTP API server for executing SQL against a
+SQLite database. It provides a small, predictable interface for applications
+that need database access without managing a direct SQLite connection.
+
+## Goals
+
+- Expose SQLite through a JSON API.
+- Support parameterized SQL statements.
+- Return query results in a consistent, machine-readable shape.
+- Reduce repeated read-query latency with an in-memory cache.
+- Support long-polling clients for connections that need to wait for updates.
+- Validate the server end to end with Python tests.
+
+## API
+
+### Execute SQL
+
+`POST /squeal` executes a SQL statement.
+
+Request:
+
+```json
+{
+  "sql": "select * from posts",
+  "params": []
+}
+```
+
+`params` is optional and contains values bound to the SQL statement. The API
+must use parameter binding rather than interpolating values into SQL text.
+
+Successful response:
+
+```json
+{
+  "meta": {
+    "columns": ["id", "title"]
+  },
+  "rows": [
+    { "id": 1, "title": "First post" }
+  ]
+}
+```
+
+`meta` contains information about the execution and result set, including
+column metadata when rows are returned. `rows` contains result records; it is
+an empty array for statements that produce no rows. Errors must use a clear
+JSON error response and an appropriate HTTP status code.
+
+## Data Storage
+
+- SQLite is the underlying persistent data store.
+- The server supports read and write SQL statements permitted by its configured
+  database and access policy.
+- Write operations must invalidate affected cached read results so subsequent
+  reads do not return stale data.
+
+## Select Query Cache
+
+- Recent `SELECT` queries are cached in memory.
+- A cache key is based on the statement and bound parameters, so different
+  parameter values have independent entries.
+- Repeated eligible `SELECT` requests may return the cached response.
+- Cache memory is reclaimed using mark-and-sweep garbage collection: recently
+  used entries are marked, and unmarked entries are swept during collection.
+- Cache limits and collection behavior should be configurable and observable
+  through server metrics or logs.
+
+## Long Polling
+
+- The server supports long-polling connections for clients waiting on database
+  changes or other supported events.
+- A long-poll request remains open until an event is available or a configured
+  timeout is reached.
+- Timeouts, client disconnects, and malformed requests must be handled without
+  leaking connections or memory.
+
+## Testing
+
+- End-to-end tests are written in Python.
+- Tests start the server against a controlled SQLite database and exercise the
+  HTTP interface.
+- Coverage includes parameter binding, successful reads and writes, response
+  shape, error handling, cache hits and invalidation, cache collection, and
+  long-poll success, timeout, and disconnect behavior.
+
+## Non-Goals
+
+- Replacing a full relational database server.
+- Providing an ORM, schema migration system, or SQL dialect beyond SQLite.
+- Supporting arbitrary non-JSON request or response formats.
