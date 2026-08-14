@@ -1,0 +1,1 @@
+# ThySqueal - simple SQL server
