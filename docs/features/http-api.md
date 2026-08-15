@@ -1,10 +1,11 @@
-# HTTP SQL API
+# HTTP Query API
 
 ## Purpose
 
-ThySqueal exposes SQLite operations through a JSON HTTP interface. The API is
-intended for clients that need a simple remote SQL boundary and a stable,
-machine-readable response format.
+ThySqueal exposes SQLite operations through a JSON HTTP interface. A request
+uses either raw SQL or Squeal, a structured JSON representation of SQL. The API
+is intended for clients that need a simple remote database boundary and a
+stable, machine-readable response format.
 
 ## Implementation
 
@@ -15,9 +16,15 @@ timeout limits, attach request IDs, catch panics, and emit HTTP tracing data.
 
 ## Endpoint
 
-`POST /api/query` accepts one SQL statement and its bound parameters.
+`POST /api/query` accepts exactly one raw SQL statement or Squeal query.
 
 Requests must use `Content-Type: application/json`.
+
+### Raw SQL
+
+`sql` must be a non-empty string. `params` is optional; when omitted, it
+behaves as an empty parameter list. Values are bound by SQLite, not
+interpolated into the SQL string.
 
 ```json
 {
@@ -26,9 +33,26 @@ Requests must use `Content-Type: application/json`.
 }
 ```
 
-`sql` is required and must be a non-empty string. `params` is optional; when
-omitted, it behaves as an empty parameter list. Values are bound by SQLite,
-not interpolated into the SQL string.
+### Squeal
+
+`squeal` must be a JSON object describing one query. It is an alternative to,
+not an addition to, `sql`; requests containing both fields or neither field are
+invalid. Squeal values are compiled to SQL with bound values, so client data
+never becomes generated SQL text.
+
+```json
+{
+  "squeal": {
+    "_": "select",
+    "from": "posts",
+    "cols": ["id", "title"]
+  }
+}
+```
+
+See the [Squeal query language](squeal.md) for the structured-language
+contract. `params` is accepted only with raw `sql`; Squeal encodes its values
+in the Squeal object.
 
 ## Successful Responses
 
@@ -60,7 +84,7 @@ or secrets. Their body has a stable structure:
 {
   "error": {
     "code": "invalid_request",
-    "message": "sql must be a non-empty string"
+    "message": "provide exactly one of sql or squeal"
   }
 }
 ```
@@ -72,7 +96,8 @@ Unavailable` when the database cannot serve requests.
 
 ## Acceptance Criteria
 
-- A client can execute parameterized reads and writes through `POST /api/query`.
+- A client can execute allowed raw SQL and Squeal queries through
+  `POST /api/query`.
 - Parameter values never change SQL syntax through string interpolation.
 - Responses have a consistent JSON shape for both row and non-row statements.
 - Invalid requests and execution failures provide safe JSON error responses.

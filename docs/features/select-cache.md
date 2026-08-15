@@ -16,15 +16,16 @@ specified mark-and-sweep policy directly.
 
 ## Eligibility and Keys
 
-- Only read-only `SELECT` statements are cache candidates.
-- The cache key includes a canonical SQL representation and a canonical,
-  type-preserving representation of bound parameters.
+- Only read-only `SELECT` statements and their Squeal equivalents are cache
+  candidates.
+- The cache key includes canonical compiled SQL and a canonical, type-preserving
+  representation of bound parameters.
 - Requests with different parameter values or types must not share a key.
 - Non-deterministic or policy-excluded statements bypass the cache.
 
-On a cache hit, ThySqueal returns the stored result in the same response shape
-as a database execution. On a miss, it executes SQLite, returns the result,
-and stores it if eligible.
+Squeal is compiled before cache lookup. On a cache hit, ThySqueal returns the
+stored result in the same response shape as a database execution. On a miss, it
+executes SQLite, returns the result, and stores it if eligible.
 
 ## Invalidation
 

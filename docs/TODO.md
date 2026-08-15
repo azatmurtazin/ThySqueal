@@ -30,13 +30,17 @@ health or readiness endpoint, and exits cleanly on shutdown.
 - [ ] Open a SQLx `SqlitePool` during startup and surface failures as clear
   startup errors.
 - [ ] Set deliberate SQLite connection options, busy timeout, and pragmas.
-- [ ] Create an execution module using SQLx prepared queries that accepts SQL
-  plus bound values and returns rows, column metadata, and write metadata.
+- [ ] Create an execution module using SQLx prepared queries that accepts raw
+  SQL plus bound values or compiled Squeal, then returns rows, column metadata,
+  and write metadata.
+- [ ] Implement a Squeal parser, validator, and compiler that converts its JSON
+  AST into SQLite SQL plus bound values; do not accept arbitrary SQL fragments
+  within Squeal fields.
 - [ ] Model supported JSON values and convert them safely to and from SQLite
   values, including `null`, booleans, integers, floats, strings, and blobs if
   blobs are part of the public API.
-- [ ] Define allowed SQL statement classes and reject prohibited administrative
-  or extension-loading statements.
+- [ ] Define allowed raw-SQL statement classes and Squeal operations, and
+  reject prohibited administrative or extension-loading statements.
 - [ ] Map SQLite syntax, binding, constraint, busy, and internal errors to
   application error types without leaking database paths or internals.
 - [ ] Ensure statements, transactions, and connections are released on all
@@ -49,10 +53,10 @@ query rows, and receive correctly typed execution results.
 
 - [ ] Set up Axum routes, extractors, application state, and Serde JSON
   request/response types.
-- [ ] Implement request validation for a JSON object containing a non-empty
-  `sql` string and optional `params` array.
-- [ ] Bind `params` through SQLite's parameter API; never construct SQL by
-  interpolating parameter text.
+- [ ] Implement request validation requiring exactly one of a non-empty `sql`
+  string or a `squeal` object; accept `params` only with raw `sql`.
+- [ ] Bind raw `params` and Squeal literal values through SQLite's parameter
+  API; never construct SQL by interpolating client data.
 - [ ] Implement the response envelope with `meta` and `rows` for every
   successful statement.
 - [ ] Return column names and row count for row-producing statements.
@@ -65,17 +69,19 @@ query rows, and receive correctly typed execution results.
 - [ ] Set response content type and add Tower request body-size and request
   timeout limits.
 
-**Done when:** a client can execute parameterized `SELECT`, `INSERT`,
-`UPDATE`, and invalid requests through HTTP and receive documented responses.
+**Done when:** a client can execute parameterized raw `SELECT`, `INSERT`, and
+`UPDATE`, plus a valid Squeal `select`, and invalid requests through HTTP and
+receive documented responses.
 
 ## 4. Query Classification and Cache Boundary
 
-- [ ] Classify statements as cacheable read, data-changing write, or uncached
-  operation using a conservative parser or policy.
+- [ ] Classify raw SQL and compiled Squeal statements as cacheable read,
+  data-changing write, or uncached operation using a conservative policy.
 - [ ] Initially cache only unambiguous, read-only `SELECT` statements.
 - [ ] Explicitly bypass caching for non-deterministic or unsupported queries.
-- [ ] Define a canonical cache key from normalized SQL and a type-preserving
-  serialization of all bound parameters.
+- [ ] Define a canonical cache key from compiled SQL and a type-preserving
+  serialization of all bound parameters, independent of whether the client
+  used raw SQL or Squeal.
 - [ ] Define immutable cached result data matching the HTTP response envelope.
 - [ ] Store cache entries in DashMap and keep cache operations safe under
   concurrent requests.
@@ -156,10 +162,12 @@ database unavailability, and leaked-or-excessive waiters from logs or metrics.
 - [ ] Choose Python test and HTTP-client libraries and document setup.
 - [ ] Build fixtures that create a temporary database, start the binary on an
   available port, wait for readiness, and always tear down the process.
-- [ ] Test successful parameterized reads and writes through `POST /api/query`.
+- [ ] Test successful parameterized raw-SQL reads and writes through
+  `POST /api/query`, and valid Squeal selects through the same endpoint.
 - [ ] Test `null`, numeric, string, and boundary parameter values.
 - [ ] Test result columns, rows, write metadata, invalid JSON, invalid fields,
-  SQL policy rejection, and SQLite constraint failures.
+  mutually exclusive `sql`/`squeal` validation, Squeal validation, SQL policy
+  rejection, and SQLite constraint failures.
 - [ ] Test cache hits, parameter-sensitive keys, write invalidation, and
   mark-and-sweep behavior using observable counters or diagnostics.
 - [ ] Test long-poll event delivery, timeout, malformed requests, concurrent

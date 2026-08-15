@@ -8,10 +8,11 @@ remote JSON API and cache behavior.
 
 ## Implementation
 
-SQLx provides asynchronous SQLite access through a shared `SqlitePool`. SQLx
-prepared queries bind request values without string interpolation and provide
-dynamic rows and column metadata for the JSON API. The pool is created once at
-startup and closed as part of graceful shutdown.
+SQLx provides asynchronous SQLite access through a shared `SqlitePool`. Raw
+SQL parameters and values compiled from Squeal are bound through SQLx prepared
+queries rather than string interpolation. SQLx provides dynamic rows and column
+metadata for the JSON API. The pool is created once at startup and closed as
+part of graceful shutdown.
 
 ## Database Lifecycle
 
@@ -24,7 +25,10 @@ startup and closed as part of graceful shutdown.
 
 ## Execution Semantics
 
-- SQL parameters are passed through SQLite's binding interface.
+- Raw SQL parameters and Squeal literal values are passed through SQLite's
+  binding interface.
+- Squeal is validated and compiled into SQLite SQL before execution; identifiers
+  are validated as language tokens and are never accepted as raw SQL fragments.
 - Statements execute against the configured database in request order according
   to the server's concurrency model.
 - SQLite transaction statements are honored when the configured access policy
@@ -35,10 +39,11 @@ startup and closed as part of graceful shutdown.
 ## Access Policy
 
 The server must define which statement classes it permits. At minimum, the
-policy distinguishes read-only `SELECT` statements from data-changing
-statements such as `INSERT`, `UPDATE`, and `DELETE`. Administrative statements
-and SQLite extension loading should be disabled unless explicitly enabled by a
-trusted deployment configuration.
+  policy distinguishes read-only `SELECT` statements from data-changing
+  statements such as `INSERT`, `UPDATE`, and `DELETE`, including their Squeal
+  equivalents when supported. Administrative statements and SQLite extension
+  loading should be disabled unless explicitly enabled by a trusted deployment
+  configuration.
 
 ## Failure Handling
 

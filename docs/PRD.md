@@ -2,9 +2,10 @@
 
 ## Overview
 
-ThySqueal is a lightweight JSON-over-HTTP API server for executing SQL against a
-SQLite database. It provides a small, predictable interface for applications
-that need database access without managing a direct SQLite connection.
+ThySqueal is a lightweight JSON-over-HTTP API server for querying a SQLite
+database with either raw SQL or Squeal, a structured JSON representation of
+SQL. It provides a small, predictable interface for applications that need
+database access without managing a direct SQLite connection.
 
 ## Technology Stack
 
@@ -20,7 +21,7 @@ that need database access without managing a direct SQLite connection.
 ## Goals
 
 - Expose SQLite through a JSON API.
-- Support parameterized SQL statements.
+- Support parameterized raw SQL statements and structured Squeal queries.
 - Return query results in a consistent, machine-readable shape.
 - Reduce repeated read-query latency with an in-memory cache.
 - Support long-polling clients for connections that need to wait for updates.
@@ -28,11 +29,11 @@ that need database access without managing a direct SQLite connection.
 
 ## API
 
-### Execute SQL
+### Execute a Query
 
-`POST /api/query` executes a SQL statement.
+`POST /api/query` executes one raw SQL statement or one Squeal query.
 
-Request:
+Raw SQL request:
 
 ```json
 {
@@ -43,6 +44,22 @@ Request:
 
 `params` is optional and contains values bound to the SQL statement. The API
 must use parameter binding rather than interpolating values into SQL text.
+
+Squeal request:
+
+```json
+{
+  "squeal": {
+    "_": "select",
+    "from": "posts",
+    "cols": ["*"]
+  }
+}
+```
+
+The request body contains exactly one of `sql` or `squeal`. Squeal is compiled
+by the server to parameterized SQLite SQL; literal values in a Squeal expression
+are bound internally and must not be concatenated into generated SQL text.
 
 Successful response:
 
@@ -65,16 +82,17 @@ JSON error response and an appropriate HTTP status code.
 ## Data Storage
 
 - SQLite is the underlying persistent data store.
-- The server supports read and write SQL statements permitted by its configured
-  database and access policy.
+- The server supports raw SQL statements and Squeal operations permitted by its
+  configured database and access policy.
 - Write operations must invalidate affected cached read results so subsequent
   reads do not return stale data.
 
 ## Select Query Cache
 
-- Recent `SELECT` queries are cached in memory.
-- A cache key is based on the statement and bound parameters, so different
-  parameter values have independent entries.
+- Recent `SELECT` queries from either query representation are cached in memory.
+- A cache key is based on canonical compiled SQL and bound parameters, so
+  semantically equivalent Squeal and raw SQL requests can share an entry while
+  different parameter values remain independent.
 - Repeated eligible `SELECT` requests may return the cached response.
 - Cache memory is reclaimed using mark-and-sweep garbage collection: recently
   used entries are marked, and unmarked entries are swept during collection.

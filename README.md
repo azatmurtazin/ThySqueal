@@ -1,8 +1,9 @@
 # ThySqueal
 
-ThySqueal is a lightweight JSON-over-HTTP server for executing parameterized
-SQL against SQLite. It includes an in-memory cache for recent `SELECT` queries
-and support for long-polling clients.
+ThySqueal is a lightweight JSON-over-HTTP server for querying SQLite with raw,
+parameterized SQL or Squeal, a structured JSON representation of SQL. It
+includes an in-memory cache for recent `SELECT` queries and support for
+long-polling clients.
 
 ## Technology
 
@@ -16,7 +17,8 @@ request tracing, and DashMap for the custom mark-and-sweep query cache. See the
 - [Product requirements](docs/PRD.md) — project goals, API outline, storage,
   caching, long polling, and testing scope.
 - [Implementation TODO](docs/TODO.md) — milestone-based development plan.
-- [HTTP SQL API](docs/features/http-api.md)
+- [HTTP query API](docs/features/http-api.md)
+- [Squeal query language](docs/features/squeal.md)
 - [SQLite storage](docs/features/sqlite-storage.md)
 - [In-memory select cache](docs/features/select-cache.md)
 - [Long polling](docs/features/long-polling.md)

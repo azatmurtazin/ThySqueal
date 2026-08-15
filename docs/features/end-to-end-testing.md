@@ -16,8 +16,10 @@ testing process startup, networking, serialization, and feature integration.
 
 ## Required Coverage
 
-- Parameterized reads, writes, nulls, numeric values, strings, and invalid
-  parameter counts.
+- Parameterized raw-SQL reads and writes, nulls, numeric values, strings, and
+  invalid parameter counts.
+- Valid Squeal selects, Squeal compilation and binding behavior, malformed
+  Squeal objects, and requests containing both `sql` and `squeal`.
 - Result metadata, row serialization, non-row statement responses, and JSON
   error bodies.
 - SQLite constraint and unavailable/locked-database failure paths.
