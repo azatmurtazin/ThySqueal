@@ -188,7 +188,7 @@ public feature requirements over real HTTP.
 
 ## 10. Release Readiness
 
-- [ ] Run formatter, linter, Rust unit tests, and Python end-to-end tests in
+- [x] Run formatter, linter, Rust unit tests, and Python end-to-end tests in
   continuous integration.
 - [ ] Add a security review of SQL policy, request-size limits, error output,
   authentication assumptions, and long-poll resource limits.

@@ -28,8 +28,9 @@ just test-e2e
 The `test-e2e` recipe builds the binary and runs `uv run pytest tests`, which
 creates a `.venv` from the `dev` dependency group declared in `pyproject.toml`
 and a `uv.lock` lockfile. The `THYSQUEAL_BIN` environment variable overrides
-the server binary location when running pytest directly. The suite lives under
-`tests/`:
+the server binary location when running pytest directly. The GitHub Actions
+workflow in `.github/workflows/ci.yml` runs the Rust checks and this suite on
+push to `main` and on pull requests. The suite lives under `tests/`:
 
 - `harness.py` starts and stops real server processes on ephemeral ports, seeds
   isolated SQLite databases before startup, writes the YAML configuration, and
