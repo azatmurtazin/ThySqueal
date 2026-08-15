@@ -81,7 +81,8 @@ JSON error response and an appropriate HTTP status code.
 
 ## Data Storage
 
-- SQLite is the underlying persistent data store.
+- SQLite is the underlying persistent data store. The server can be configured
+  to expose multiple named SQLite databases.
 - The server supports raw SQL statements and Squeal operations permitted by its
   configured database and access policy.
 - Write operations must invalidate affected cached read results so subsequent

@@ -4,9 +4,19 @@
 
 bind_address: "127.0.0.1:5931"
 
-database:
-  path: "db/thy-squeal.db"
-  max_connections: 5
+databases:
+  # general purpose db
+  - name: main
+    path: "db/thy-squeal.db"
+    max_connections: 5
+
+  # heavy read db
+  - name: catalog
+    path: "db/catalog.db"
+
+  # heavy write db
+  - name: logs
+    path: "db/logs.db"
 
 request:
   body_limit_bytes: 1048576

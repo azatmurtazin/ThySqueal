@@ -27,16 +27,21 @@ async fn main() -> ExitCode {
 async fn run() -> Result<(), StartupError> {
     let config_path = config::path_from_args()?;
     let config = Config::load(&config_path)?;
-    let database = database::open(&config).await?;
-    let state = AppState { database };
+    let databases = database::open_all(&config).await?;
+    let state = AppState { databases };
     let application = app::router(state, &config);
     let listener = tokio::net::TcpListener::bind(config.bind_address).await?;
+
+    let database_names: Vec<&str> = config
+        .databases()
+        .iter()
+        .map(|database| database.name.as_str())
+        .collect();
 
     info!(
         config_path = %config_path.display(),
         address = %config.bind_address,
-        database_path = %config.database_path().display(),
-        max_connections = config.database_max_connections(),
+        databases = ?database_names,
         request_body_limit_bytes = config.request_body_limit_bytes(),
         request_timeout_seconds = config.request_timeout().as_secs(),
         long_poll_timeout_seconds = config.long_poll_timeout().as_secs(),
@@ -56,8 +61,8 @@ async fn run() -> Result<(), StartupError> {
 enum StartupError {
     #[error(transparent)]
     Config(#[from] config::ConfigError),
-    #[error("could not open SQLite database: {0}")]
-    Database(#[from] sqlx::Error),
+    #[error(transparent)]
+    Database(#[from] database::OpenError),
     #[error("could not bind HTTP listener: {0}")]
     Listener(#[from] std::io::Error),
 }

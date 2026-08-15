@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     env, fs,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -21,7 +22,7 @@ const DEFAULT_CACHE_MAX_ENTRIES: u64 = 1000;
 #[serde(default)]
 pub(crate) struct Config {
     pub(crate) bind_address: SocketAddr,
-    database: DatabaseConfig,
+    databases: Vec<DatabaseConfig>,
     request: RequestConfig,
     long_poll: LongPollConfig,
     cache: CacheConfig,
@@ -33,7 +34,7 @@ impl Default for Config {
             bind_address: DEFAULT_BIND_ADDRESS
                 .parse()
                 .expect("default bind address is valid"),
-            database: DatabaseConfig::default(),
+            databases: vec![DatabaseConfig::default()],
             request: RequestConfig::default(),
             long_poll: LongPollConfig::default(),
             cache: CacheConfig::default(),
@@ -47,25 +48,48 @@ impl Config {
             path: path.to_owned(),
             source,
         })?;
-        Self::from_str(&contents).map_err(|source| ConfigError::Parse {
+        let config = Self::from_str(&contents).map_err(|source| ConfigError::Parse {
             path: path.to_owned(),
             source,
-        })
+        })?;
+        config.validate().map_err(|message| ConfigError::Invalid {
+            path: path.to_owned(),
+            message,
+        })?;
+        Ok(config)
     }
 
     fn from_str(contents: &str) -> Result<Self, serde_yml::Error> {
-        if contents.trim().is_empty() {
-            return Ok(Self::default());
+        let mut config: Config = if contents.trim().is_empty() {
+            Self::default()
+        } else {
+            serde_yml::from_str(contents)?
+        };
+        config.ensure_default_database();
+        Ok(config)
+    }
+
+    fn ensure_default_database(&mut self) {
+        if self.databases.is_empty() {
+            self.databases.push(DatabaseConfig::default());
         }
-        serde_yml::from_str(contents)
     }
 
-    pub(crate) fn database_path(&self) -> &Path {
-        &self.database.path
+    fn validate(&self) -> Result<(), String> {
+        let mut names = HashSet::new();
+        for database in &self.databases {
+            if database.name.trim().is_empty() {
+                return Err("database names must not be empty".to_owned());
+            }
+            if !names.insert(&database.name) {
+                return Err(format!("duplicate database name '{}'", database.name));
+            }
+        }
+        Ok(())
     }
 
-    pub(crate) fn database_max_connections(&self) -> u32 {
-        self.database.max_connections
+    pub(crate) fn databases(&self) -> &[DatabaseConfig] {
+        &self.databases
     }
 
     pub(crate) fn request_body_limit_bytes(&self) -> usize {
@@ -87,14 +111,16 @@ impl Config {
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
-struct DatabaseConfig {
-    path: PathBuf,
-    max_connections: u32,
+pub(crate) struct DatabaseConfig {
+    pub(crate) name: String,
+    pub(crate) path: PathBuf,
+    pub(crate) max_connections: u32,
 }
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
+            name: "main".to_owned(),
             path: PathBuf::from(DEFAULT_DATABASE_PATH),
             max_connections: DEFAULT_MAX_CONNECTIONS,
         }
@@ -176,6 +202,8 @@ pub(crate) enum ConfigError {
         path: PathBuf,
         source: serde_yml::Error,
     },
+    #[error("invalid configuration file {path}: {message}")]
+    Invalid { path: PathBuf, message: String },
     #[error("--config requires a path argument")]
     MissingConfigArgument,
     #[error("unknown command line argument: {0}")]

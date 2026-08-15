@@ -16,10 +16,10 @@ part of graceful shutdown.
 
 ## Database Lifecycle
 
-- The server opens a configured SQLite database when it starts.
-- Startup fails clearly if the database cannot be opened or initialized.
-- The database location and SQLite connection settings are configuration, not
-  request input.
+- The server opens every configured SQLite database when it starts.
+- Startup fails clearly if any database cannot be opened or initialized.
+- The set of databases, their locations, and SQLite connection settings are
+  configuration, not request input.
 - SQLite pragmas and journaling mode are configured deliberately for the
   deployment rather than relying on implicit defaults.
 

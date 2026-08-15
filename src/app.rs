@@ -5,7 +5,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use sqlx::SqlitePool;
 use thiserror::Error;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -18,10 +17,11 @@ use tower_http::{
 use uuid::Uuid;
 
 use crate::config::Config;
+use crate::database::Registry;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
-    pub(crate) database: SqlitePool,
+    pub(crate) databases: Registry,
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {
@@ -50,7 +50,9 @@ async fn health() -> StatusCode {
 }
 
 async fn readiness(State(state): State<AppState>) -> Result<StatusCode, ReadinessError> {
-    sqlx::query("SELECT 1").execute(&state.database).await?;
+    for pool in state.databases.values() {
+        sqlx::query("SELECT 1").execute(pool).await?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
