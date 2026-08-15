@@ -113,6 +113,9 @@ successful write prevents any stale cached result from being served.
 - [ ] Trigger collection when configured memory or entry thresholds are met,
   and optionally on a periodic timer.
 - [ ] Sweep entries that were not marked in the current collection generation.
+- [ ] Sweep entries older than a configured maximum age (TTL/max-age), using the
+  `created` and `last_access` timestamps already tracked per entry, in addition
+  to entries unused since the last collection cycle.
 - [ ] Clear or advance marks on surviving entries so future collection cycles
   can distinguish recent use from old use.
 - [ ] Make collection safe when requests read or write cache entries
@@ -122,7 +125,8 @@ successful write prevents any stale cached result from being served.
   and number of entries swept.
 
 **Done when:** tests show that accessed entries survive one collection cycle,
-unused entries are reclaimed, and configured cache limits remain bounded.
+unused entries are reclaimed, entries older than the configured maximum age are
+not served, and configured cache limits remain bounded.
 
 ## 7. Long Polling
 

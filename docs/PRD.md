@@ -102,6 +102,8 @@ serve requests, and `500` for unexpected failures.
 - Repeated eligible `SELECT` requests may return the cached response.
 - Cache memory is reclaimed using mark-and-sweep garbage collection: recently
   used entries are marked, and unmarked entries are swept during collection.
+- Cache entries may also be reclaimed after a configurable maximum age (TTL),
+  in addition to write invalidation and mark-and-sweep collection.
 - Cache limits and collection behavior should be configurable and observable
   through server metrics or logs.
 

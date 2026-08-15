@@ -68,6 +68,23 @@ used since the last collection cycle: a hit or fresh store updates the mark and
 last-access time. The future collector will sweep entries that remain unmarked
 and clear marks on retained entries for the next cycle.
 
+## Time-Based Expiry (Planned)
+
+Entries do not expire today: they live until a successful write invalidates the
+database's cache or, later, until the collector sweeps them. The design plans
+to add a configurable maximum age (TTL) for cache entries, likely a per-database
+`cache.max_age_seconds` inherited from a global default, mirroring
+`max_entries`.
+
+The collector will treat expiry as an additional reclaim reason alongside the
+mark-and-sweep generation: entries whose `created` (or, if configured
+last-access based, `last_access`) timestamp exceeds the maximum age become
+sweep candidates even when recently marked. Because `created` and
+`last_access` are already tracked on every entry, adding expiry requires no
+schema change. Age-based expiry never replaces write invalidation, which
+remains the correctness mechanism; it only bounds how long an entry can be
+served without a write.
+
 ## Acceptance Criteria
 
 - Repeating an eligible `SELECT` returns a cache hit without another SQLite
@@ -75,3 +92,5 @@ and clear marks on retained entries for the next cycle.
 - Writes never allow stale cached query results to be served.
 - Recently used entries survive a collection cycle; unused entries are removed.
 - Cache size remains bounded by configuration.
+- (Planned) An entry older than the configured maximum age is not served once
+  expiry is implemented.
