@@ -3,27 +3,15 @@ use std::time::Duration;
 
 use axum::{
     Router,
-    extract::State,
-    http::{HeaderValue, Request, StatusCode},
-    response::{IntoResponse, Response},
     routing::{get, post},
 };
-use thiserror::Error;
 use tokio::sync::watch;
-use tower::ServiceBuilder;
-use tower_http::{
-    catch_panic::CatchPanicLayer,
-    limit::RequestBodyLimitLayer,
-    request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
-    timeout::TimeoutLayer,
-    trace::TraceLayer,
-};
-use uuid::Uuid;
 
-use crate::config::Config;
 use crate::database::Registry;
 use crate::events::WaiterLimits;
+use crate::http_handlers;
 use crate::metrics;
+use crate::{config::Config, http_handlers::middlewares::apply_middlewares};
 
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -35,69 +23,22 @@ pub(crate) struct AppState {
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {
-    let metrics = Arc::clone(&state.metrics);
-    Router::new()
-        .route("/healthz", get(health))
-        .route("/readyz", get(readiness))
+    let router = Router::new()
+        .route("/healthz", get(http_handlers::healthz::health_handler))
+        .route("/readyz", get(http_handlers::readyz::ready_handler))
         .route("/api/query", post(crate::query::execute_query))
+        .route("/api/privileged-query", post(crate::query::execute_query))
         .route("/api/events", get(crate::events::wait_for_event))
         .route(
             "/api/diagnostics",
-            get(crate::diagnostics::diagnostics_json),
+            get(http_handlers::api::diagnostics::diagnostics_handler),
         )
-        .route("/diagnostics", get(crate::diagnostics::diagnostics_page))
-        .with_state(state)
-        .layer(
-            ServiceBuilder::new()
-                .layer(CatchPanicLayer::new())
-                .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
-                .layer(PropagateRequestIdLayer::x_request_id())
-                .layer(RequestBodyLimitLayer::new(
-                    config.request_body_limit_bytes(),
-                ))
-                .layer(TraceLayer::new_for_http())
-                .layer(TimeoutLayer::with_status_code(
-                    StatusCode::REQUEST_TIMEOUT,
-                    config.request_timeout(),
-                ))
-                .layer(metrics::MetricsLayer::new(metrics)),
+        .route(
+            "/diagnostics",
+            get(http_handlers::diagnostics::diagnostics_handler),
         )
-}
+        .route("/", get(http_handlers::home::home_handler))
+        .with_state(state.clone());
 
-async fn health() -> StatusCode {
-    StatusCode::NO_CONTENT
-}
-
-async fn readiness(State(state): State<AppState>) -> Result<StatusCode, ReadinessError> {
-    for database in state.databases.values() {
-        sqlx::query("SELECT 1").execute(&database.pool).await?;
-    }
-    Ok(StatusCode::NO_CONTENT)
-}
-
-#[derive(Debug, Error)]
-#[error("database is unavailable")]
-struct ReadinessError(#[source] sqlx::Error);
-
-impl From<sqlx::Error> for ReadinessError {
-    fn from(error: sqlx::Error) -> Self {
-        Self(error)
-    }
-}
-
-impl IntoResponse for ReadinessError {
-    fn into_response(self) -> Response {
-        (StatusCode::SERVICE_UNAVAILABLE, self.to_string()).into_response()
-    }
-}
-
-#[derive(Clone)]
-struct MakeRequestUuid;
-
-impl MakeRequestId for MakeRequestUuid {
-    fn make_request_id<B>(&mut self, _request: &Request<B>) -> Option<RequestId> {
-        HeaderValue::from_str(&Uuid::new_v4().to_string())
-            .ok()
-            .map(RequestId::new)
-    }
+    apply_middlewares(router, &state, config)
 }

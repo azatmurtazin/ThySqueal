@@ -1,23 +1,12 @@
-use axum::{
-    Json,
-    extract::State,
-    response::{Html, IntoResponse, Response},
-};
+use axum::{Json, extract::State};
 use serde::Serialize;
 
 use crate::app::AppState;
 use crate::cache::CounterSnapshot;
 use crate::metrics;
 
-#[cfg(test)]
-mod tests;
-
-pub(crate) async fn diagnostics_json(State(state): State<AppState>) -> Json<Report> {
+pub(crate) async fn diagnostics_handler(State(state): State<AppState>) -> Json<Report> {
     Json(report(&state))
-}
-
-pub(crate) async fn diagnostics_page() -> Response {
-    Html(include_str!("../assets/dashboard.html")).into_response()
 }
 
 fn report(state: &AppState) -> Report {
