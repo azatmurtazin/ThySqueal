@@ -2,7 +2,7 @@
 # Every field is optional; omitted fields use the defaults shown here.
 # A different file can be selected with `thy-squeal --config <path>`.
 
-bind_address: "127.0.0.1:3000"
+bind_address: "127.0.0.1:5931"
 
 database:
   path: "db/thy-squeal.db"

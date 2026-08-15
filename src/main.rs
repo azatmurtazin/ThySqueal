@@ -32,7 +32,7 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 use uuid::Uuid;
 
 const DEFAULT_CONFIG_PATH: &str = "thy-squeal.yaml";
-const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1:3000";
+const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1:5931";
 const DEFAULT_DATABASE_PATH: &str = "db/thy-squeal.db";
 const DEFAULT_MAX_CONNECTIONS: u32 = 5;
 const DEFAULT_REQUEST_BODY_LIMIT_BYTES: usize = 1048576;
@@ -399,7 +399,7 @@ mod tests {
     fn empty_configuration_uses_all_defaults() {
         let config = Config::from_str("").expect("valid empty configuration");
 
-        assert_eq!(config.bind_address.to_string(), "127.0.0.1:3000");
+        assert_eq!(config.bind_address.to_string(), "127.0.0.1:5931");
         assert_eq!(config.database_max_connections(), 5);
         assert_eq!(config.request_body_limit_bytes(), 1048576);
         assert_eq!(config.request_timeout().as_secs(), 30);

@@ -13,7 +13,7 @@ Every field is optional. Omitted fields use the documented defaults. An example
 with all defaults is checked in as `thy-squeal.yaml`:
 
 ```yaml
-bind_address: "127.0.0.1:3000"
+bind_address: "127.0.0.1:5931"
 
 database:
   path: "db/thy-squeal.db"
@@ -34,7 +34,7 @@ cache:
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `bind_address` | `127.0.0.1:3000` | Socket address the HTTP server binds to. |
+| `bind_address` | `127.0.0.1:5931` | Socket address the HTTP server binds to. |
 | `database.path` | `db/thy-squeal.db` | SQLite database file location; created if missing. |
 | `database.max_connections` | `5` | Maximum connections in the SQLite pool. |
 | `request.body_limit_bytes` | `1048576` | Maximum accepted request body size. |
