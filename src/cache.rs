@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 use serde_json::Value as JsonValue;
@@ -56,17 +56,50 @@ pub(crate) struct CounterSnapshot {
     pub(crate) swept_entries: u64,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct CacheSettings {
+    pub(crate) max_entries: u64,
+    pub(crate) max_age: Duration,
+    pub(crate) collection_threshold: u64,
+    pub(crate) collection_threshold_bytes: u64,
+    pub(crate) collection_interval: Duration,
+}
+
+impl CacheSettings {
+    pub(crate) fn with_max_entries(max_entries: u64) -> Self {
+        Self {
+            max_entries,
+            collection_threshold: max_entries,
+            ..Self::default()
+        }
+    }
+}
+
+impl Default for CacheSettings {
+    fn default() -> Self {
+        Self {
+            max_entries: 1000,
+            max_age: Duration::ZERO,
+            collection_threshold: 1000,
+            collection_threshold_bytes: 0,
+            collection_interval: Duration::ZERO,
+        }
+    }
+}
+
 pub(crate) struct SelectCache {
     entries: DashMap<CacheKey, Entry>,
-    max_entries: u64,
+    settings: CacheSettings,
+    bytes: AtomicU64,
     counters: Counters,
 }
 
 impl SelectCache {
-    pub(crate) fn new(max_entries: u64) -> Self {
+    pub(crate) fn new(settings: CacheSettings) -> Self {
         Self {
             entries: DashMap::new(),
-            max_entries,
+            settings,
+            bytes: AtomicU64::new(0),
             counters: Counters::default(),
         }
     }
@@ -88,7 +121,13 @@ impl SelectCache {
     }
 
     pub(crate) fn store(&self, key: CacheKey, result: CachedResult) -> Option<Arc<CachedResult>> {
-        if self.max_entries == 0 || self.entries.len() as u64 >= self.max_entries {
+        if self.settings.max_entries == 0 {
+            return None;
+        }
+        if self.threshold_reached() {
+            self.collect();
+        }
+        if self.entries.len() as u64 >= self.settings.max_entries {
             return None;
         }
         let size_bytes = result.size_bytes();
@@ -101,16 +140,72 @@ impl SelectCache {
                 size_bytes,
                 created: now,
                 last_access: now,
-                marked: false,
+                marked: true,
             },
         );
+        self.bytes.fetch_add(size_bytes as u64, Ordering::Relaxed);
         self.counters.stores.fetch_add(1, Ordering::Relaxed);
         Some(result)
     }
 
     pub(crate) fn invalidate_all(&self) {
         self.entries.clear();
+        self.bytes.store(0, Ordering::Relaxed);
         self.counters.invalidations.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn collect(&self) {
+        let started = Instant::now();
+        let before = self.entries.len();
+        let now = Instant::now();
+        let max_age = self.settings.max_age;
+        let mut swept: u64 = 0;
+        let mut bytes_reclaimed: usize = 0;
+
+        self.entries.retain(|_, entry| {
+            let expired =
+                !max_age.is_zero() && now.saturating_duration_since(entry.created) >= max_age;
+            if !entry.marked || expired {
+                swept += 1;
+                bytes_reclaimed += entry.size_bytes;
+                return false;
+            }
+            entry.marked = false;
+            true
+        });
+
+        if swept > 0 {
+            self.subtract_bytes(bytes_reclaimed as u64);
+        }
+        self.counters
+            .collection_runs
+            .fetch_add(1, Ordering::Relaxed);
+        self.counters
+            .swept_entries
+            .fetch_add(swept, Ordering::Relaxed);
+        tracing::debug!(
+            duration_ms = started.elapsed().as_millis(),
+            before,
+            after = before.saturating_sub(swept as usize),
+            bytes_reclaimed,
+            swept,
+            "select cache collection",
+        );
+    }
+
+    pub(crate) fn spawn_periodic_collection(self: Arc<Self>) {
+        let interval = self.settings.collection_interval;
+        if interval.is_zero() {
+            return;
+        }
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                self.collect();
+            }
+        });
     }
 
     pub(crate) fn counters(&self) -> CounterSnapshot {
@@ -122,6 +217,20 @@ impl SelectCache {
             collection_runs: self.counters.collection_runs.load(Ordering::Relaxed),
             swept_entries: self.counters.swept_entries.load(Ordering::Relaxed),
         }
+    }
+
+    fn threshold_reached(&self) -> bool {
+        self.entries.len() as u64 >= self.settings.collection_threshold
+            || (self.settings.collection_threshold_bytes > 0
+                && self.bytes.load(Ordering::Relaxed) >= self.settings.collection_threshold_bytes)
+    }
+
+    fn subtract_bytes(&self, amount: u64) {
+        let _ = self
+            .bytes
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+                Some(current.saturating_sub(amount))
+            });
     }
 }
 

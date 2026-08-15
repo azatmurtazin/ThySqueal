@@ -9,18 +9,19 @@ never replaces SQLite as the source of truth.
 ## Implementation
 
 A `DashMap` (`src/cache.rs`) holds concurrent cache entries. Each value stores
-the immutable response payload behind an `Arc` plus metadata for the future
+the immutable response payload behind an `Arc` plus metadata for the
 mark-and-sweep collector: mark generation flag, estimated size in bytes, and
 creation and last-access timestamps. The project intentionally does not use a
-general-purpose eviction cache: its collector must implement the specified
-mark-and-sweep policy directly. Until that collector lands, `store` simply
-skips new entries once the configured `max_entries` count is reached, so the
-cache stays bounded without evicting anything.
+general-purpose eviction cache: its collector implements the specified
+mark-and-sweep policy directly. On a store, the cache first runs a collection
+when a configured threshold is reached, then inserts only if the entry count is
+still below `max_entries`, so the cache stays bounded without evicting
+arbitrarily.
 
 Every database owns a separate cache instance, so entries, capacity, and
-invalidation never leak across databases. The database's `cache.max_entries`
-configures it; a value of `0` disables caching for that database, and an
-omitted value inherits the global `cache.max_entries` default.
+invalidation never leak across databases. The database's `cache` section
+configures it; a `max_entries` value of `0` disables caching for that database,
+and omitted fields inherit the global `cache` defaults.
 
 ## Eligibility and Keys
 
@@ -57,33 +58,30 @@ preserves correctness.
 ## Counters and Configuration
 
 Atomic counters track hits, misses, stores, invalidations, collection runs,
-and swept entries (`collection_runs` and `swept_entries` are reserved for the
-mark-and-sweep collector). At startup, `database::open_all` wires each
-database's effective `cache.max_entries` into its own `SelectCache`.
+and swept entries. At startup, `database::open_all` resolves each database's
+effective cache settings and wires them into its own `SelectCache`, spawning a
+periodic collection task when a collection interval is configured.
 
 ## Mark-and-Sweep Collection
 
-Planned for a later milestone. Each cache entry already tracks whether it was
-used since the last collection cycle: a hit or fresh store updates the mark and
-last-access time. The future collector will sweep entries that remain unmarked
-and clear marks on retained entries for the next cycle.
+Each cache entry carries a mark flag. A hit or fresh store marks the entry;
+collection clears marks on survivors and sweeps entries that remain unmarked,
+so entries used during the current generation survive the cycle and unused
+entries are reclaimed. Collection is triggered on a store when the entry-count
+or byte-count threshold is reached, and additionally runs on a periodic timer
+when `collection_interval_seconds` is set. Collection walks the `DashMap` with
+a `retain` pass and never holds map references across an async boundary, so it
+is safe against concurrent request read and write traffic. Every run records
+its duration, entry count before and after, bytes reclaimed, and entries swept.
 
-## Time-Based Expiry (Planned)
+## Time-Based Expiry
 
-Entries do not expire today: they live until a successful write invalidates the
-database's cache or, later, until the collector sweeps them. The design plans
-to add a configurable maximum age (TTL) for cache entries, likely a per-database
-`cache.max_age_seconds` inherited from a global default, mirroring
-`max_entries`.
-
-The collector will treat expiry as an additional reclaim reason alongside the
-mark-and-sweep generation: entries whose `created` (or, if configured
-last-access based, `last_access`) timestamp exceeds the maximum age become
-sweep candidates even when recently marked. Because `created` and
-`last_access` are already tracked on every entry, adding expiry requires no
-schema change. Age-based expiry never replaces write invalidation, which
-remains the correctness mechanism; it only bounds how long an entry can be
-served without a write.
+Entries expire when their `created` timestamp exceeds the configured maximum
+age (`max_age_seconds`), even if recently marked; expired entries become sweep
+candidates alongside unmarked ones. Because `created` and `last_access` are
+tracked on every entry, expiry needs no schema change. Age-based expiry never
+replaces write invalidation, which remains the correctness mechanism; it only
+bounds how long an entry can be served without a write.
 
 ## Acceptance Criteria
 
@@ -91,6 +89,5 @@ served without a write.
   read.
 - Writes never allow stale cached query results to be served.
 - Recently used entries survive a collection cycle; unused entries are removed.
+- An entry older than the configured maximum age is not served once collected.
 - Cache size remains bounded by configuration.
-- (Planned) An entry older than the configured maximum age is not served once
-  expiry is implemented.

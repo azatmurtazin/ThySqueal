@@ -10,7 +10,7 @@ use self::sections::{CacheConfig, LongPollConfig, RequestConfig};
 
 pub(crate) use self::args::path_from_args;
 pub(crate) use self::error::ConfigError;
-pub(crate) use self::sections::DatabaseConfig;
+pub(crate) use self::sections::{DatabaseConfig, ResolvedCacheConfig};
 
 const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1:5931";
 
@@ -100,8 +100,12 @@ impl Config {
         Duration::from_secs(self.long_poll.timeout_seconds)
     }
 
+    pub(crate) fn cache_settings(&self) -> ResolvedCacheConfig {
+        self.cache.resolve()
+    }
+
     pub(crate) fn cache_max_entries(&self) -> u64 {
-        self.cache.max_entries
+        self.cache_settings().max_entries
     }
 }
 

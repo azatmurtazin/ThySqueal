@@ -31,6 +31,10 @@ long_poll:
 
 cache:
   max_entries: 1000
+  max_age_seconds: 0
+  collection_threshold_entries: 0
+  collection_threshold_bytes: 0
+  collection_interval_seconds: 0
 ```
 
 ## Values
@@ -43,10 +47,18 @@ cache:
 | `databases[].path` | `db/thy-squeal.db` | SQLite database file location; created if missing. |
 | `databases[].max_connections` | `5` | Maximum connections in the database's pool. |
 | `databases[].cache.max_entries` | global `cache.max_entries` | Upper bound for this database's cached select-query entries. Each database has its own cache. `0` disables caching for that database. |
+| `databases[].cache.max_age_seconds` | global `cache.max_age_seconds` | Maximum age of a cached entry for this database. `0` disables expiry. |
+| `databases[].cache.collection_threshold_entries` | global `cache.collection_threshold_entries` | Entry count that triggers collection for this database. |
+| `databases[].cache.collection_threshold_bytes` | global `cache.collection_threshold_bytes` | Estimated byte count that triggers collection for this database. `0` disables the byte threshold. |
+| `databases[].cache.collection_interval_seconds` | global `cache.collection_interval_seconds` | Periodic collection interval for this database. `0` disables the periodic timer. |
 | `request.body_limit_bytes` | `1048576` | Maximum accepted request body size. |
 | `request.timeout_seconds` | `30` | Per-request timeout for the HTTP layer. |
 | `long_poll.timeout_seconds` | `30` | Maximum wait duration for a long-poll request. |
 | `cache.max_entries` | `1000` | Default upper bound for cached select-query entries, inherited by databases that do not set their own `cache.max_entries`. |
+| `cache.max_age_seconds` | `0` | Default maximum age of a cached entry; `0` means entries do not expire. Inherited by databases that do not set their own value. |
+| `cache.collection_threshold_entries` | `0` | Default entry count that triggers a mark-and-sweep collection. `0` falls back to the database's `max_entries`. |
+| `cache.collection_threshold_bytes` | `0` | Default estimated byte count that triggers collection; `0` disables the byte threshold. |
+| `cache.collection_interval_seconds` | `0` | Default periodic collection interval; `0` disables the periodic timer. |
 
 ## Validation
 

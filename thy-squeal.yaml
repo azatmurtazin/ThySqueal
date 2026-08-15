@@ -31,3 +31,7 @@ long_poll:
 
 cache:
   max_entries: 1000
+  max_age_seconds: 0
+  collection_threshold_entries: 0
+  collection_threshold_bytes: 0
+  collection_interval_seconds: 0

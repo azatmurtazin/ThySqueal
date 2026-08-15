@@ -89,17 +89,45 @@ fn parses_per_database_cache_configuration() {
             path: "/tmp/main.db"
             cache:
               max_entries: 0
+              max_age_seconds: 5
           - name: catalog
             path: "/tmp/catalog.db"
         cache:
           max_entries: 42
+          max_age_seconds: 60
+          collection_threshold_entries: 20
+          collection_threshold_bytes: 4096
+          collection_interval_seconds: 30
         "#,
     )
     .expect("valid configuration");
 
+    let global = config.cache_settings();
+    assert_eq!(global.max_entries, 42);
+    assert_eq!(global.max_age_seconds, 60);
+    assert_eq!(global.collection_threshold_entries, 20);
+    assert_eq!(global.collection_threshold_bytes, 4096);
+    assert_eq!(global.collection_interval_seconds, 30);
+
     let databases = config.databases();
-    assert_eq!(databases[0].cache_max_entries(42), 0);
-    assert_eq!(databases[1].cache_max_entries(42), 42);
+    let main = databases[0].cache_settings(&global);
+    assert_eq!(main.max_entries, 0);
+    assert_eq!(main.max_age_seconds, 5);
+    assert_eq!(main.collection_threshold_entries, 20);
+    let catalog = databases[1].cache_settings(&global);
+    assert_eq!(catalog.max_entries, 42);
+    assert_eq!(catalog.max_age_seconds, 60);
+}
+
+#[test]
+fn cache_settings_use_document_defaults() {
+    let config = Config::from_str("").expect("valid empty configuration");
+    let settings = config.cache_settings();
+    assert_eq!(settings.max_entries, 1000);
+    assert_eq!(settings.max_age_seconds, 0);
+    assert_eq!(settings.collection_threshold_entries, 0);
+    assert_eq!(settings.collection_threshold_bytes, 0);
+    assert_eq!(settings.collection_interval_seconds, 0);
 }
 
 #[test]

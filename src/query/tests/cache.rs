@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::cache::SelectCache;
+use crate::cache::{CacheSettings, SelectCache};
 use crate::database::Database;
 use crate::query::tests::{
     memory_pool, post_json, seed_items, test_router_with_cache, test_router_with_databases,
@@ -13,7 +13,9 @@ use crate::query::tests::{
 async fn seeded_cache(max_entries: u64) -> (axum::Router, Arc<SelectCache>) {
     let pool = memory_pool().await;
     seed_items(&pool).await;
-    let cache = Arc::new(SelectCache::new(max_entries));
+    let cache = Arc::new(SelectCache::new(CacheSettings::with_max_entries(
+        max_entries,
+    )));
     let app = test_router_with_cache(
         HashMap::from([("main".to_owned(), pool)]),
         Arc::clone(&cache),
@@ -119,8 +121,8 @@ async fn write_on_one_database_does_not_invalidate_another() {
     seed_items(&pool_a).await;
     let pool_b = memory_pool().await;
     seed_items(&pool_b).await;
-    let cache_a = Arc::new(SelectCache::new(1000));
-    let cache_b = Arc::new(SelectCache::new(1000));
+    let cache_a = Arc::new(SelectCache::new(CacheSettings::default()));
+    let cache_b = Arc::new(SelectCache::new(CacheSettings::default()));
     let databases = HashMap::from([
         (
             "alpha".to_owned(),
@@ -180,4 +182,21 @@ async fn disabled_cache_never_stores_or_hits() {
     let counters = cache.counters();
     assert_eq!(counters.stores, 0);
     assert_eq!(counters.hits, 0);
+}
+
+#[tokio::test]
+async fn collection_keeps_cache_bounded_when_full() {
+    let (app, cache) = seeded_cache(2).await;
+
+    for index in 0..5 {
+        let (status, _) =
+            post_json(&app, json!({ "sql": format!("SELECT {index} AS value") })).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    assert_eq!(cache.len(), 2);
+    let counters = cache.counters();
+    assert_eq!(counters.stores, 4);
+    assert_eq!(counters.collection_runs, 2);
+    assert_eq!(counters.swept_entries, 2);
 }

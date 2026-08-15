@@ -108,20 +108,20 @@ successful write prevents any stale cached result from being served.
 
 ## 6. Mark-and-Sweep Cache Collection
 
-- [ ] Mark cache entries on cache hits and on insertion when appropriate for
+- [x] Mark cache entries on cache hits and on insertion when appropriate for
   the collection policy.
-- [ ] Trigger collection when configured memory or entry thresholds are met,
+- [x] Trigger collection when configured memory or entry thresholds are met,
   and optionally on a periodic timer.
-- [ ] Sweep entries that were not marked in the current collection generation.
-- [ ] Sweep entries older than a configured maximum age (TTL/max-age), using the
+- [x] Sweep entries that were not marked in the current collection generation.
+- [x] Sweep entries older than a configured maximum age (TTL/max-age), using the
   `created` and `last_access` timestamps already tracked per entry, in addition
   to entries unused since the last collection cycle.
-- [ ] Clear or advance marks on surviving entries so future collection cycles
+- [x] Clear or advance marks on surviving entries so future collection cycles
   can distinguish recent use from old use.
-- [ ] Make collection safe when requests read or write cache entries
+- [x] Make collection safe when requests read or write cache entries
   concurrently, using DashMap entry operations without holding references
   across async await points.
-- [ ] Record collection duration, entry count before and after, bytes reclaimed,
+- [x] Record collection duration, entry count before and after, bytes reclaimed,
   and number of entries swept.
 
 **Done when:** tests show that accessed entries survive one collection cycle,

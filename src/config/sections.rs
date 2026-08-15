@@ -19,11 +19,25 @@ pub(crate) struct DatabaseConfig {
 }
 
 impl DatabaseConfig {
-    pub(crate) fn cache_max_entries(&self, global_default: u64) -> u64 {
-        self.cache
-            .as_ref()
-            .map(|cache| cache.max_entries)
-            .unwrap_or(global_default)
+    pub(crate) fn cache_settings(&self, global: &ResolvedCacheConfig) -> ResolvedCacheConfig {
+        let Some(per_database) = &self.cache else {
+            return *global;
+        };
+        ResolvedCacheConfig {
+            max_entries: per_database.max_entries.unwrap_or(global.max_entries),
+            max_age_seconds: per_database
+                .max_age_seconds
+                .unwrap_or(global.max_age_seconds),
+            collection_threshold_entries: per_database
+                .collection_threshold_entries
+                .unwrap_or(global.collection_threshold_entries),
+            collection_threshold_bytes: per_database
+                .collection_threshold_bytes
+                .unwrap_or(global.collection_threshold_bytes),
+            collection_interval_seconds: per_database
+                .collection_interval_seconds
+                .unwrap_or(global.collection_interval_seconds),
+        }
     }
 }
 
@@ -68,16 +82,33 @@ impl Default for LongPollConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-pub(crate) struct CacheConfig {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedCacheConfig {
     pub(crate) max_entries: u64,
+    pub(crate) max_age_seconds: u64,
+    pub(crate) collection_threshold_entries: u64,
+    pub(crate) collection_threshold_bytes: u64,
+    pub(crate) collection_interval_seconds: u64,
 }
 
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            max_entries: DEFAULT_CACHE_MAX_ENTRIES,
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct CacheConfig {
+    pub(crate) max_entries: Option<u64>,
+    pub(crate) max_age_seconds: Option<u64>,
+    pub(crate) collection_threshold_entries: Option<u64>,
+    pub(crate) collection_threshold_bytes: Option<u64>,
+    pub(crate) collection_interval_seconds: Option<u64>,
+}
+
+impl CacheConfig {
+    pub(crate) fn resolve(&self) -> ResolvedCacheConfig {
+        ResolvedCacheConfig {
+            max_entries: self.max_entries.unwrap_or(DEFAULT_CACHE_MAX_ENTRIES),
+            max_age_seconds: self.max_age_seconds.unwrap_or(0),
+            collection_threshold_entries: self.collection_threshold_entries.unwrap_or(0),
+            collection_threshold_bytes: self.collection_threshold_bytes.unwrap_or(0),
+            collection_interval_seconds: self.collection_interval_seconds.unwrap_or(0),
         }
     }
 }
