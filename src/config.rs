@@ -1,22 +1,18 @@
-use std::{
-    collections::HashSet,
-    env, fs,
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+mod args;
+mod error;
+mod sections;
+
+use std::{collections::HashSet, fs, net::SocketAddr, path::Path, time::Duration};
 
 use serde::Deserialize;
-use thiserror::Error;
 
-pub(crate) const DEFAULT_CONFIG_PATH: &str = "thy-squeal.yaml";
+use self::sections::{CacheConfig, LongPollConfig, RequestConfig};
+
+pub(crate) use self::args::path_from_args;
+pub(crate) use self::error::ConfigError;
+pub(crate) use self::sections::DatabaseConfig;
+
 const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1:5931";
-const DEFAULT_DATABASE_PATH: &str = "db/thy-squeal.db";
-const DEFAULT_MAX_CONNECTIONS: u32 = 5;
-const DEFAULT_REQUEST_BODY_LIMIT_BYTES: usize = 1048576;
-const DEFAULT_REQUEST_TIMEOUT_SECONDS: u64 = 30;
-const DEFAULT_LONG_POLL_TIMEOUT_SECONDS: u64 = 30;
-const DEFAULT_CACHE_MAX_ENTRIES: u64 = 1000;
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
@@ -107,107 +103,6 @@ impl Config {
     pub(crate) fn cache_max_entries(&self) -> u64 {
         self.cache.max_entries
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-pub(crate) struct DatabaseConfig {
-    pub(crate) name: String,
-    pub(crate) path: PathBuf,
-    pub(crate) max_connections: u32,
-}
-
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self {
-            name: "main".to_owned(),
-            path: PathBuf::from(DEFAULT_DATABASE_PATH),
-            max_connections: DEFAULT_MAX_CONNECTIONS,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct RequestConfig {
-    body_limit_bytes: usize,
-    timeout_seconds: u64,
-}
-
-impl Default for RequestConfig {
-    fn default() -> Self {
-        Self {
-            body_limit_bytes: DEFAULT_REQUEST_BODY_LIMIT_BYTES,
-            timeout_seconds: DEFAULT_REQUEST_TIMEOUT_SECONDS,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct LongPollConfig {
-    timeout_seconds: u64,
-}
-
-impl Default for LongPollConfig {
-    fn default() -> Self {
-        Self {
-            timeout_seconds: DEFAULT_LONG_POLL_TIMEOUT_SECONDS,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct CacheConfig {
-    max_entries: u64,
-}
-
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            max_entries: DEFAULT_CACHE_MAX_ENTRIES,
-        }
-    }
-}
-
-pub(crate) fn path_from_args() -> Result<PathBuf, ConfigError> {
-    let mut args = env::args().skip(1);
-    let mut config_path = PathBuf::from(DEFAULT_CONFIG_PATH);
-
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--config" => {
-                config_path = args
-                    .next()
-                    .map(PathBuf::from)
-                    .ok_or(ConfigError::MissingConfigArgument)?;
-            }
-            other => return Err(ConfigError::UnknownArgument(other.to_owned())),
-        }
-    }
-
-    Ok(config_path)
-}
-
-#[derive(Debug, Error)]
-pub(crate) enum ConfigError {
-    #[error("could not read configuration file {path}: {source}")]
-    Read {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-    #[error("could not parse configuration file {path}: {source}")]
-    Parse {
-        path: PathBuf,
-        source: serde_yml::Error,
-    },
-    #[error("invalid configuration file {path}: {message}")]
-    Invalid { path: PathBuf, message: String },
-    #[error("--config requires a path argument")]
-    MissingConfigArgument,
-    #[error("unknown command line argument: {0}")]
-    UnknownArgument(String),
 }
 
 #[cfg(test)]
