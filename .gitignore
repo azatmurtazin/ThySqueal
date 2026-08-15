@@ -3,4 +3,4 @@
 /db/*.db-shm
 /db/*.db-wal
 /.pytest_cache
-/__pycache__
+__pycache__/
