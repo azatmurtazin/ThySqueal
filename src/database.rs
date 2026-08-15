@@ -5,9 +5,11 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use thiserror::Error;
+use tokio::sync::broadcast;
 
 use crate::cache::{CacheSettings, SelectCache};
 use crate::config::{Config, DatabaseConfig, ResolvedCacheConfig};
+use crate::events::{ChangeEvent, EVENT_CHANNEL_CAPACITY};
 
 #[cfg(test)]
 mod tests;
@@ -18,6 +20,7 @@ pub(crate) type Registry = HashMap<String, Database>;
 pub(crate) struct Database {
     pub(crate) pool: SqlitePool,
     pub(crate) cache: Arc<SelectCache>,
+    pub(crate) events: broadcast::Sender<ChangeEvent>,
 }
 
 #[derive(Debug, Error)]
@@ -38,7 +41,15 @@ pub(crate) async fn open_all(config: &Config) -> Result<Registry, OpenError> {
             &database.cache_settings(&global_cache),
         )));
         cache.clone().spawn_periodic_collection();
-        databases.insert(database.name.clone(), Database { pool, cache });
+        let (events, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
+        databases.insert(
+            database.name.clone(),
+            Database {
+                pool,
+                cache,
+                events,
+            },
+        );
     }
     Ok(databases)
 }

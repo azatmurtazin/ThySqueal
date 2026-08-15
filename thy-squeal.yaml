@@ -28,6 +28,8 @@ request:
 
 long_poll:
   timeout_seconds: 30
+  max_waiters: 1000
+  max_waiters_per_client: 10
 
 cache:
   max_entries: 1000

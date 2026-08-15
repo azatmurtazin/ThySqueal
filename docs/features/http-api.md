@@ -100,6 +100,36 @@ parameter shapes; `422 Unprocessable Content` for SQL rejected by policy;
 `500 Internal Server Error` for unexpected failures; and `503 Service
 Unavailable` when the database cannot serve requests.
 
+## Long-Poll Events: `GET /api/events`
+
+`GET /api/events` long-polls for database-change events. It accepts the optional
+query parameters `db` (default `main`), `table` (no table filter by default),
+and `limit` (default `1`, between `1` and `100`). The connection remains open
+until a matching event is published, the configured timeout elapses, or the
+server shuts down.
+
+```http
+GET /api/events?db=main&table=items&limit=1
+```
+
+A successful response carries a `meta` object naming the watched database and an
+`events` array of change events; each event has a `database`, a `table` (or
+`null` when the write's target table cannot be determined), and an `at` Unix
+millisecond timestamp:
+
+```json
+{
+  "meta": { "database": "main" },
+  "events": [
+    { "database": "main", "table": "items", "at": 1710000000000 }
+  ]
+}
+```
+
+Events are published only after successful writes commit, through a bounded
+per-database channel. See [Long Polling](long-polling.md) for the full contract,
+including filter validation and waiter limits.
+
 Error codes are stable and machine-readable. The full mapping:
 
 | HTTP status | Error code | Condition |
@@ -113,6 +143,12 @@ Error codes are stable and machine-readable. The full mapping:
 | `422` | `policy_rejection` | Raw SQL uses a statement class outside the allowed read-only and data-changing set, such as DDL, `PRAGMA`, or transaction control. |
 | `503` | `unavailable` | The database is locked or the pool cannot serve requests. |
 | `500` | `execution_failed` | Any unexpected execution failure. |
+
+The long-poll endpoint has additional error codes: `408 long_poll_timeout` when
+no matching event arrives within the configured wait, `429 too_many_waiters`
+when a client exceeds its per-client waiter limit, `503 too_many_waiters` when
+the total waiter limit is reached, and `503 shutting_down` during graceful
+shutdown.
 
 ## Acceptance Criteria
 

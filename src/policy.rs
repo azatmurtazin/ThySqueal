@@ -126,7 +126,7 @@ fn classify_query(query: &Query) -> Result<StatementClass, Error> {
     }
 }
 
-fn normalized(sql: &str) -> Cow<'_, str> {
+pub(crate) fn normalized(sql: &str) -> Cow<'_, str> {
     let leading = sql.trim_start();
     let prefix = leading.get(.."REPLACE".len()).unwrap_or_default();
     if !prefix.eq_ignore_ascii_case("REPLACE") {

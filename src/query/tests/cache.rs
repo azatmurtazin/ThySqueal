@@ -5,9 +5,9 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use crate::cache::{CacheSettings, SelectCache};
-use crate::database::Database;
 use crate::query::tests::{
-    memory_pool, post_json, seed_items, test_router_with_cache, test_router_with_databases,
+    memory_pool, post_json, seed_items, test_database, test_router_with_cache,
+    test_router_with_databases,
 };
 
 async fn seeded_cache(max_entries: u64) -> (axum::Router, Arc<SelectCache>) {
@@ -126,17 +126,11 @@ async fn write_on_one_database_does_not_invalidate_another() {
     let databases = HashMap::from([
         (
             "alpha".to_owned(),
-            Database {
-                pool: pool_a,
-                cache: Arc::clone(&cache_a),
-            },
+            test_database(pool_a, Arc::clone(&cache_a)),
         ),
         (
             "beta".to_owned(),
-            Database {
-                pool: pool_b,
-                cache: Arc::clone(&cache_b),
-            },
+            test_database(pool_b, Arc::clone(&cache_b)),
         ),
     ]);
     let app = test_router_with_databases(databases);

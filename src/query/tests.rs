@@ -1,9 +1,11 @@
 mod cache;
 mod errors;
+mod events;
 mod success;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     Router,
@@ -12,12 +14,14 @@ use axum::{
 };
 use serde_json::Value as JsonValue;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use tokio::sync::{broadcast, watch};
 use tower::ServiceExt;
 
 use crate::app::AppState;
 use crate::cache::{CacheSettings, SelectCache};
 use crate::config::Config;
 use crate::database::Database;
+use crate::events::{EVENT_CHANNEL_CAPACITY, WaiterLimits};
 
 pub(crate) async fn memory_pool() -> SqlitePool {
     SqlitePoolOptions::new()
@@ -25,6 +29,15 @@ pub(crate) async fn memory_pool() -> SqlitePool {
         .connect("sqlite::memory:")
         .await
         .expect("in-memory pool")
+}
+
+pub(crate) fn test_database(pool: SqlitePool, cache: Arc<SelectCache>) -> Database {
+    let (events, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
+    Database {
+        pool,
+        cache,
+        events,
+    }
 }
 
 pub(crate) fn test_router(databases: HashMap<String, SqlitePool>) -> Router {
@@ -40,21 +53,29 @@ pub(crate) fn test_router_with_cache(
 ) -> Router {
     let databases = databases
         .into_iter()
-        .map(|(name, pool)| {
-            (
-                name,
-                Database {
-                    pool,
-                    cache: Arc::clone(&cache),
-                },
-            )
-        })
+        .map(|(name, pool)| (name, test_database(pool, Arc::clone(&cache))))
         .collect();
     test_router_with_databases(databases)
 }
 
 pub(crate) fn test_router_with_databases(databases: HashMap<String, Database>) -> Router {
-    crate::app::router(AppState { databases }, &Config::default())
+    test_router_with_state(databases, Duration::from_millis(500), 1000, 10)
+}
+
+pub(crate) fn test_router_with_state(
+    databases: HashMap<String, Database>,
+    long_poll_timeout: Duration,
+    max_waiters: u64,
+    max_waiters_per_client: u64,
+) -> Router {
+    let (_, shutdown) = watch::channel(false);
+    let state = AppState {
+        databases,
+        waiters: Arc::new(WaiterLimits::new(max_waiters, max_waiters_per_client)),
+        shutdown,
+        long_poll_timeout,
+    };
+    crate::app::router(state, &Config::default())
 }
 
 pub(crate) async fn seed_items(pool: &SqlitePool) {

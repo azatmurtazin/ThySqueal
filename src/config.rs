@@ -100,6 +100,14 @@ impl Config {
         Duration::from_secs(self.long_poll.timeout_seconds)
     }
 
+    pub(crate) fn long_poll_max_waiters(&self) -> u64 {
+        self.long_poll.max_waiters
+    }
+
+    pub(crate) fn long_poll_max_waiters_per_client(&self) -> u64 {
+        self.long_poll.max_waiters_per_client
+    }
+
     pub(crate) fn cache_settings(&self) -> ResolvedCacheConfig {
         self.cache.resolve()
     }

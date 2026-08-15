@@ -130,19 +130,19 @@ not served, and configured cache limits remain bounded.
 
 ## 7. Long Polling
 
-- [ ] Define the long-poll endpoint, request filter, response schema, timeout
+- [x] Define the long-poll endpoint, request filter, response schema, timeout
   status, and event schema in the public API documentation.
-- [ ] Implement a registry of pending waiters with cancellation-safe cleanup.
-- [ ] Use a Tokio `broadcast` channel to publish change events to concurrent
+- [x] Implement a registry of pending waiters with cancellation-safe cleanup.
+- [x] Use a Tokio `broadcast` channel to publish change events to concurrent
   waiters, applying `tokio::time::timeout` to each wait.
-- [ ] Publish change events only after successful relevant writes commit.
-- [ ] Deliver matching events to waiting requests and remove completed waiters.
-- [ ] Implement a configurable maximum wait duration and normal timeout
+- [x] Publish change events only after successful relevant writes commit.
+- [x] Deliver matching events to waiting requests and remove completed waiters.
+- [x] Implement a configurable maximum wait duration and normal timeout
   response when no event arrives.
-- [ ] Detect client disconnects and unregister their waiters promptly.
-- [ ] Limit total and per-client concurrent waiters.
-- [ ] Bound event payload size and avoid retaining unbounded event history.
-- [ ] Release waiting requests cleanly during graceful shutdown.
+- [x] Detect client disconnects and unregister their waiters promptly.
+- [x] Limit total and per-client concurrent waiters.
+- [x] Bound event payload size and avoid retaining unbounded event history.
+- [x] Release waiting requests cleanly during graceful shutdown.
 
 **Done when:** a client can wait for an event, receive one after a matching
 write, time out without an event, and cancel without leaving server state.

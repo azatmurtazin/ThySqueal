@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use axum::{
     Router,
     extract::State,
@@ -6,6 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use thiserror::Error;
+use tokio::sync::watch;
 use tower::ServiceBuilder;
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -18,10 +22,14 @@ use uuid::Uuid;
 
 use crate::config::Config;
 use crate::database::Registry;
+use crate::events::WaiterLimits;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) databases: Registry,
+    pub(crate) waiters: Arc<WaiterLimits>,
+    pub(crate) shutdown: watch::Receiver<bool>,
+    pub(crate) long_poll_timeout: Duration,
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {
@@ -29,6 +37,7 @@ pub(crate) fn router(state: AppState, config: &Config) -> Router {
         .route("/healthz", get(health))
         .route("/readyz", get(readiness))
         .route("/api/query", post(crate::query::execute_query))
+        .route("/api/events", get(crate::events::wait_for_event))
         .with_state(state)
         .layer(
             ServiceBuilder::new()

@@ -28,6 +28,8 @@ request:
 
 long_poll:
   timeout_seconds: 30
+  max_waiters: 1000
+  max_waiters_per_client: 10
 
 cache:
   max_entries: 1000
@@ -54,6 +56,8 @@ cache:
 | `request.body_limit_bytes` | `1048576` | Maximum accepted request body size. |
 | `request.timeout_seconds` | `30` | Per-request timeout for the HTTP layer. |
 | `long_poll.timeout_seconds` | `30` | Maximum wait duration for a long-poll request. |
+| `long_poll.max_waiters` | `1000` | Maximum number of concurrent long-poll waiters across all clients. |
+| `long_poll.max_waiters_per_client` | `10` | Maximum concurrent long-poll waiters for a single client connection. |
 | `cache.max_entries` | `1000` | Default upper bound for cached select-query entries, inherited by databases that do not set their own `cache.max_entries`. |
 | `cache.max_age_seconds` | `0` | Default maximum age of a cached entry; `0` means entries do not expire. Inherited by databases that do not set their own value. |
 | `cache.collection_threshold_entries` | `0` | Default entry count that triggers a mark-and-sweep collection. `0` falls back to the database's `max_entries`. |

@@ -7,6 +7,8 @@ const DEFAULT_MAX_CONNECTIONS: u32 = 5;
 const DEFAULT_REQUEST_BODY_LIMIT_BYTES: usize = 1048576;
 const DEFAULT_REQUEST_TIMEOUT_SECONDS: u64 = 30;
 const DEFAULT_LONG_POLL_TIMEOUT_SECONDS: u64 = 30;
+const DEFAULT_LONG_POLL_MAX_WAITERS: u64 = 1000;
+const DEFAULT_LONG_POLL_MAX_WAITERS_PER_CLIENT: u64 = 10;
 const DEFAULT_CACHE_MAX_ENTRIES: u64 = 1000;
 
 #[derive(Debug, Deserialize)]
@@ -72,12 +74,16 @@ impl Default for RequestConfig {
 #[serde(default)]
 pub(crate) struct LongPollConfig {
     pub(crate) timeout_seconds: u64,
+    pub(crate) max_waiters: u64,
+    pub(crate) max_waiters_per_client: u64,
 }
 
 impl Default for LongPollConfig {
     fn default() -> Self {
         Self {
             timeout_seconds: DEFAULT_LONG_POLL_TIMEOUT_SECONDS,
+            max_waiters: DEFAULT_LONG_POLL_MAX_WAITERS,
+            max_waiters_per_client: DEFAULT_LONG_POLL_MAX_WAITERS_PER_CLIENT,
         }
     }
 }

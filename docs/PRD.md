@@ -113,8 +113,13 @@ serve requests, and `500` for unexpected failures.
   changes or other supported events.
 - A long-poll request remains open until an event is available or a configured
   timeout is reached.
+- Change events are published after successful writes through a bounded
+  per-database channel; events carry the database, the target table when it can
+  be determined, and a server timestamp.
 - Timeouts, client disconnects, and malformed requests must be handled without
   leaking connections or memory.
+- Concurrent waiters are bounded globally and per client to prevent idle or slow
+  clients from exhausting connections.
 
 ## Testing
 

@@ -17,6 +17,7 @@ use serde_json::Value as JsonValue;
 use crate::app::AppState;
 use crate::cache;
 use crate::cache::SelectCache;
+use crate::events;
 use crate::execution;
 use crate::policy;
 use crate::policy::StatementClass;
@@ -87,6 +88,12 @@ pub(crate) async fn execute_query(
         Ok(result) => {
             if is_write(&classification.classes) {
                 database.cache.invalidate_all();
+                let event = events::ChangeEvent {
+                    database: parsed.db.clone(),
+                    table: events::table_of(&parsed.sql),
+                    at: events::now_millis(),
+                };
+                let _ = database.events.send(event);
             }
             if classification.cacheable
                 && let Some(cached) = store_cached_result(&database.cache, key, &result)
