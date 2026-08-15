@@ -110,6 +110,7 @@ Error codes are stable and machine-readable. The full mapping:
 | `400` | `invalid_sql` | SQL syntax, `no such table`, or `no such column` failures. |
 | `400` | `constraint_violation` | A `UNIQUE`, `NOT NULL`, `PRIMARY KEY`, `FOREIGN KEY`, or `CHECK` constraint failed. |
 | `400` | `unsupported_column` | A result column has a type the value model cannot represent, such as a blob. |
+| `422` | `policy_rejection` | Raw SQL uses a statement class outside the allowed read-only and data-changing set, such as DDL, `PRAGMA`, or transaction control. |
 | `503` | `unavailable` | The database is locked or the pool cannot serve requests. |
 | `500` | `execution_failed` | Any unexpected execution failure. |
 

@@ -100,3 +100,19 @@ async fn selects_configured_database() {
     assert_eq!(status, axum::http::StatusCode::OK);
     assert_eq!(body["rows"][0]["title"], json!("The Rust Book"));
 }
+
+#[tokio::test]
+async fn runs_select_with_leading_comment() {
+    let pool = memory_pool().await;
+    seed_items(&pool).await;
+    let app = test_router(HashMap::from([("main".to_owned(), pool)]));
+
+    let (status, body) = post_json(
+        &app,
+        json!({ "sql": "-- a comment\nSELECT count(*) AS n FROM items" }),
+    )
+    .await;
+
+    assert_eq!(status, axum::http::StatusCode::OK);
+    assert_eq!(body["rows"][0], json!({ "n": 2 }));
+}

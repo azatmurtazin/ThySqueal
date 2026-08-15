@@ -39,7 +39,7 @@ health or readiness endpoint, and exits cleanly on shutdown.
 - [x] Model supported JSON values and convert them safely to and from SQLite
   values; booleans map to SQLite integers `0`/`1`, and blobs are not part of
   the public value model.
-- [ ] Define allowed raw-SQL statement classes and Squeal operations, and
+- [x] Define allowed raw-SQL statement classes and Squeal operations, and
   reject prohibited administrative or extension-loading statements.
 - [x] Map SQLite syntax, binding, constraint, busy, and internal errors to
   application error types without leaking database paths or internals.
@@ -66,9 +66,8 @@ query rows, and receive correctly typed execution results.
   non-row statements, with `rows: []`.
 - [x] Define stable JSON error objects containing a machine-readable code and a
   safe, client-useful message.
-- [ ] Map invalid JSON and validation errors to `400`, rejected SQL policy to
+- [x] Map invalid JSON and validation errors to `400`, rejected SQL policy to
   `422`, unavailable database to `503`, and unexpected failures to `500`.
-  (`400`, `503`, and `500` are mapped; `422` waits for the SQL policy.)
 - [x] Set response content type and add Tower request body-size and request
   timeout limits.
 

@@ -146,3 +146,13 @@ async fn rejects_malformed_json() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["code"], "invalid_request");
 }
+
+#[tokio::test]
+async fn rejects_prohibited_statements() {
+    let app = test_router(HashMap::from([("main".to_owned(), memory_pool().await)]));
+
+    let (status, body) = post_json(&app, json!({ "sql": "DROP TABLE items" })).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "policy_rejection");
+}

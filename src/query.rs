@@ -13,6 +13,7 @@ use serde_json::Value as JsonValue;
 
 use crate::app::AppState;
 use crate::execution;
+use crate::policy;
 use crate::squeal;
 use crate::value::Value;
 
@@ -52,6 +53,10 @@ pub(crate) async fn execute_query(
         Ok(parsed) => parsed,
         Err(error) => return error.into_response(),
     };
+
+    if let Err(error) = policy::classify(&parsed.sql) {
+        return QueryError::Policy(error).into_response();
+    }
 
     let pool = match state.databases.get(&parsed.db) {
         Some(pool) => pool,

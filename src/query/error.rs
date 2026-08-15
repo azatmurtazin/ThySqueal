@@ -6,6 +6,7 @@ use axum::{
 use serde::Serialize;
 
 use crate::execution;
+use crate::policy::PolicyError;
 use crate::squeal::SquealError;
 
 #[derive(Debug)]
@@ -13,6 +14,7 @@ pub(crate) enum QueryError {
     InvalidRequest(String),
     UnknownDatabase(String),
     Squeal(SquealError),
+    Policy(PolicyError),
     Execution(execution::Error),
 }
 
@@ -36,6 +38,10 @@ impl IntoResponse for QueryError {
             Self::Squeal(error) => (
                 StatusCode::BAD_REQUEST,
                 ErrorDetail::new("invalid_squeal", error.to_string()),
+            ),
+            Self::Policy(error) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorDetail::new("policy_rejection", error.to_string()),
             ),
             Self::Execution(execution::Error::InvalidQuery(message)) => (
                 StatusCode::BAD_REQUEST,

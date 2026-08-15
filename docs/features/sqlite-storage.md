@@ -36,21 +36,32 @@ part of graceful shutdown.
 - Statements execute against the configured database in request order according
   to the server's concurrency model.
 - Raw SQL may contain multiple statements; all values are still bound through
-  SQLite's parameter interface, never interpolated into the SQL text. The
-  planned access policy will narrow which statement classes are allowed.
-- SQLite transaction statements are honored when the configured access policy
-  allows them.
+  SQLite's parameter interface, never interpolated into the SQL text. The access
+  policy allows only read-only and data-changing statement classes; see
+  Access Policy below.
+- Transaction control statements are rejected by the access policy.
 - Reads return rows and column metadata. Writes report execution metadata and
   trigger cache invalidation.
 
 ## Access Policy
 
-The server must define which statement classes it permits. At minimum, the
-  policy distinguishes read-only `SELECT` statements from data-changing
-  statements such as `INSERT`, `UPDATE`, and `DELETE`, including their Squeal
-  equivalents when supported. Administrative statements and SQLite extension
-  loading should be disabled unless explicitly enabled by a trusted deployment
-  configuration.
+Raw SQL is classified before execution. Each statement is tokenized to find
+statement boundaries and the leading operation; strings, quoted identifiers,
+comments, numbers, and other syntax are skipped so they cannot influence
+classification.
+
+- Read-only statements: `SELECT`, and `WITH` queries whose body selects data.
+- Data-changing statements: `INSERT`, `UPDATE`, `DELETE`, `REPLACE`, and `WITH`
+  queries whose body changes data.
+- All other statement classes — DDL such as `CREATE`, `DROP`, and `ALTER`,
+  transaction control (`BEGIN`, `COMMIT`, `ROLLBACK`), `PRAGMA`, `ATTACH`,
+  `DETACH`, `VACUUM`, `EXPLAIN`, and anything unrecognized — are rejected with
+  `422 Unprocessable Content` and the error code `policy_rejection`.
+- Classification is fail-closed: statements that cannot be recognized are
+  rejected rather than executed.
+- Squeal compiles to `SELECT` statements, so it always classifies as read-only.
+- SQLite extension loading is disabled at the connection level; the policy does
+  not rely on keyword detection to block `SELECT load_extension(...)`.
 
 ## Failure Handling
 
