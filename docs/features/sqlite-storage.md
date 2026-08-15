@@ -27,10 +27,17 @@ part of graceful shutdown.
 
 - Raw SQL parameters and Squeal literal values are passed through SQLite's
   binding interface.
+- The value model covers `null`, booleans, integers, floats, and strings.
+  Booleans bind and decode as the SQLite integers `0` and `1`. Blobs are not
+  part of the public value model; a query returning a blob column fails as an
+  unsupported column type.
 - Squeal is validated and compiled into SQLite SQL before execution; identifiers
   are validated as language tokens and are never accepted as raw SQL fragments.
 - Statements execute against the configured database in request order according
   to the server's concurrency model.
+- Raw SQL may contain multiple statements; all values are still bound through
+  SQLite's parameter interface, never interpolated into the SQL text. The
+  planned access policy will narrow which statement classes are allowed.
 - SQLite transaction statements are honored when the configured access policy
   allows them.
 - Reads return rows and column metadata. Writes report execution metadata and

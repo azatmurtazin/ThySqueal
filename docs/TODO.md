@@ -27,23 +27,23 @@ health or readiness endpoint, and exits cleanly on shutdown.
 
 ## 2. SQLite Integration
 
-- [ ] Open a SQLx `SqlitePool` during startup and surface failures as clear
+- [x] Open a SQLx `SqlitePool` during startup and surface failures as clear
   startup errors.
 - [ ] Set deliberate SQLite connection options, busy timeout, and pragmas.
-- [ ] Create an execution module using SQLx prepared queries that accepts raw
+- [x] Create an execution module using SQLx prepared queries that accepts raw
   SQL plus bound values or compiled Squeal, then returns rows, column metadata,
   and write metadata.
 - [ ] Implement a Squeal parser, validator, and compiler that converts its JSON
   AST into SQLite SQL plus bound values; do not accept arbitrary SQL fragments
   within Squeal fields.
-- [ ] Model supported JSON values and convert them safely to and from SQLite
-  values, including `null`, booleans, integers, floats, strings, and blobs if
-  blobs are part of the public API.
+- [x] Model supported JSON values and convert them safely to and from SQLite
+  values; booleans map to SQLite integers `0`/`1`, and blobs are not part of
+  the public value model.
 - [ ] Define allowed raw-SQL statement classes and Squeal operations, and
   reject prohibited administrative or extension-loading statements.
-- [ ] Map SQLite syntax, binding, constraint, busy, and internal errors to
+- [x] Map SQLite syntax, binding, constraint, busy, and internal errors to
   application error types without leaking database paths or internals.
-- [ ] Ensure statements, transactions, and connections are released on all
+- [x] Ensure statements, transactions, and connections are released on all
   success, error, timeout, and cancellation paths.
 
 **Done when:** a Rust-level test can create a table, insert bound values,
