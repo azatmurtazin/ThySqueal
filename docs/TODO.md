@@ -159,7 +159,7 @@ write, time out without an event, and cancel without leaving server state.
   JavaScript and no build tooling.
 - [x] Document all configuration values, defaults, validation rules, and safe
   production recommendations.
-- [ ] Document SQL access policy, limits, and operational caveats of serving
+- [x] Document SQL access policy, limits, and operational caveats of serving
   SQLite over HTTP.
 
 **Done when:** an operator can identify request failures, cache effectiveness,
