@@ -45,23 +45,29 @@ part of graceful shutdown.
 
 ## Access Policy
 
-Raw SQL is classified before execution. Each statement is tokenized to find
-statement boundaries and the leading operation; strings, quoted identifiers,
-comments, numbers, and other syntax are skipped so they cannot influence
-classification.
+Raw SQL is parsed with the `sqlparser` crate using its SQLite dialect before
+execution. Each parsed statement is classified by its statement type, and
+`WITH` queries are classified by their query body, so strings, comments, and
+identifiers can never influence the outcome.
 
-- Read-only statements: `SELECT`, and `WITH` queries whose body selects data.
-- Data-changing statements: `INSERT`, `UPDATE`, `DELETE`, `REPLACE`, and `WITH`
-  queries whose body changes data.
+- Read-only statements: `SELECT`, compound selects, and `WITH` queries whose
+  body selects data.
+- Data-changing statements: `INSERT`, `UPDATE`, `DELETE`, `REPLACE` (parsed as
+  `INSERT OR REPLACE`), and `WITH` queries whose body changes data.
 - All other statement classes — DDL such as `CREATE`, `DROP`, and `ALTER`,
   transaction control (`BEGIN`, `COMMIT`, `ROLLBACK`), `PRAGMA`, `ATTACH`,
   `DETACH`, `VACUUM`, `EXPLAIN`, and anything unrecognized — are rejected with
   `422 Unprocessable Content` and the error code `policy_rejection`.
-- Classification is fail-closed: statements that cannot be recognized are
-  rejected rather than executed.
+- Classification is fail-closed: statements that cannot be parsed or
+  recognized are rejected rather than executed. SQL that `sqlparser` cannot
+  parse is rejected as `invalid_sql`; its grammar is stricter than SQLite's,
+  so rare SQLite-only syntax may be rejected even though a future SQLite
+  version could accept it.
 - Squeal compiles to `SELECT` statements, so it always classifies as read-only.
 - SQLite extension loading is disabled at the connection level; the policy does
   not rely on keyword detection to block `SELECT load_extension(...)`.
+- The parsed statements expose the tables each statement touches (reads and
+  write targets), which the cache will use to invalidate reads after writes.
 
 ## Failure Handling
 

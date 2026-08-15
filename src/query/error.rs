@@ -39,10 +39,16 @@ impl IntoResponse for QueryError {
                 StatusCode::BAD_REQUEST,
                 ErrorDetail::new("invalid_squeal", error.to_string()),
             ),
-            Self::Policy(error) => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                ErrorDetail::new("policy_rejection", error.to_string()),
-            ),
+            Self::Policy(error) => match error {
+                PolicyError::Rejected { .. } => (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    ErrorDetail::new("policy_rejection", error.to_string()),
+                ),
+                PolicyError::InvalidSyntax { .. } => (
+                    StatusCode::BAD_REQUEST,
+                    ErrorDetail::new("invalid_sql", error.to_string()),
+                ),
+            },
             Self::Execution(execution::Error::InvalidQuery(message)) => (
                 StatusCode::BAD_REQUEST,
                 ErrorDetail::new("invalid_sql", message),

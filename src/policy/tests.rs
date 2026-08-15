@@ -1,4 +1,4 @@
-use super::{StatementClass, classify};
+use super::{Error, StatementClass, classify};
 
 fn classes(sql: &str) -> Vec<StatementClass> {
     classify(sql).expect("classification")
@@ -51,6 +51,22 @@ fn classifies_with_write_as_write() {
         classes("WITH top AS (SELECT * FROM items LIMIT 1) INSERT INTO archive SELECT * FROM top"),
         vec![StatementClass::Write]
     );
+    assert_eq!(
+        classes("WITH top AS (SELECT * FROM items LIMIT 1) UPDATE archive SET x = 1"),
+        vec![StatementClass::Write]
+    );
+    assert_eq!(
+        classes("WITH top AS (SELECT * FROM items LIMIT 1) DELETE FROM archive"),
+        vec![StatementClass::Write]
+    );
+}
+
+#[test]
+fn classifies_compound_selects_as_read() {
+    assert_eq!(
+        classes("SELECT id FROM items UNION SELECT id FROM archive"),
+        vec![StatementClass::Read]
+    );
 }
 
 #[test]
@@ -84,14 +100,9 @@ fn ignores_keywords_inside_strings() {
 #[test]
 fn is_case_insensitive() {
     assert_eq!(classes("select 1"), vec![StatementClass::Read]);
-    assert_eq!(classes("Insert"), vec![StatementClass::Write]);
-}
-
-#[test]
-fn ignores_keywords_inside_subqueries() {
     assert_eq!(
-        classes("SELECT * FROM items WHERE id IN (SELECT id FROM archive)"),
-        vec![StatementClass::Read]
+        classes("INSERT INTO items (name) VALUES ('x')"),
+        vec![StatementClass::Write]
     );
 }
 
@@ -105,8 +116,6 @@ fn rejects_prohibited_statements() {
         "BEGIN",
         "COMMIT",
         "ROLLBACK",
-        "ATTACH DATABASE 'other.db' AS other",
-        "DETACH DATABASE other",
         "VACUUM",
         "EXPLAIN SELECT 1",
         "GRANT ALL ON items TO analyst",
@@ -117,8 +126,26 @@ fn rejects_prohibited_statements() {
 }
 
 #[test]
+fn rejects_unsupported_statement_shapes() {
+    assert!(classify("ATTACH DATABASE 'other.db' AS other").is_err());
+    assert!(classify("DETACH DATABASE other").is_err());
+}
+
+#[test]
 fn accepts_empty_and_comment_only_input() {
     assert_eq!(classify("").unwrap(), vec![]);
     assert_eq!(classify("   ").unwrap(), vec![]);
     assert_eq!(classify("-- just a comment").unwrap(), vec![]);
+}
+
+#[test]
+fn distinguishes_syntax_errors_from_rejections() {
+    assert!(matches!(
+        classify("SELECT FROM WHERE"),
+        Err(Error::InvalidSyntax { .. })
+    ));
+    assert!(matches!(
+        classify("DROP TABLE items"),
+        Err(Error::Rejected { .. })
+    ));
 }

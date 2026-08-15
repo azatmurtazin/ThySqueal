@@ -2,7 +2,11 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-use logos::Logos;
+use std::borrow::Cow;
+
+use sqlparser::ast::{Query, SetExpr, Statement};
+use sqlparser::dialect::SQLiteDialect;
+use sqlparser::parser::Parser;
 
 use crate::policy::error::Error;
 
@@ -14,83 +18,62 @@ pub(crate) enum StatementClass {
     Write,
 }
 
-#[derive(Logos, Debug, PartialEq)]
-enum Token {
-    #[token(";")]
-    Semicolon,
-    #[token("(")]
-    OpenParen,
-    #[token(")")]
-    CloseParen,
-    #[regex(r"[A-Za-z_][A-Za-z0-9_]*", |lex| lex.slice().to_ascii_lowercase())]
-    Word(String),
-    #[regex(r"[ \t\r\n\f\v]+", logos::skip)]
-    #[regex(r"--[^\n]*?", logos::skip)]
-    #[regex(r"/\*[^\*/]*(\*[^\*/]*)*\*/", logos::skip)]
-    #[regex(r"'([^']|'')*'", logos::skip)]
-    #[regex(r#""([^"]|"")*""#, logos::skip)]
-    #[regex(r"`([^`]|``)*`", logos::skip)]
-    #[regex(r"\[[^\]]*\]", logos::skip)]
-    #[regex(r"[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?", logos::skip)]
-    Noise,
-}
-
 pub(crate) fn classify(sql: &str) -> Result<Vec<StatementClass>, Error> {
-    let mut classes = Vec::new();
-    let mut words: Vec<String> = Vec::new();
-    let mut depth = 0usize;
+    if sql.trim().is_empty() {
+        return Ok(Vec::new());
+    }
 
-    for token in Token::lexer(sql) {
-        match token {
-            Ok(Token::Semicolon) => {
-                if !words.is_empty() {
-                    classes.push(classify_words(&words)?);
-                    words.clear();
-                }
-            }
-            Ok(Token::OpenParen) => depth += 1,
-            Ok(Token::CloseParen) => depth = depth.saturating_sub(1),
-            Ok(Token::Word(word)) if depth == 0 => words.push(word),
-            Ok(_) => {}
-            Err(_) => {}
+    let dialect = SQLiteDialect {};
+    let statements = Parser::parse_sql(&dialect, &normalized(sql))
+        .map_err(|error| Error::invalid_syntax(error.to_string()))?;
+
+    statements.iter().map(classify_statement).collect()
+}
+
+fn classify_statement(statement: &Statement) -> Result<StatementClass, Error> {
+    match statement {
+        Statement::Insert(_) | Statement::Update { .. } | Statement::Delete { .. } => {
+            Ok(StatementClass::Write)
         }
-    }
-
-    if !words.is_empty() {
-        classes.push(classify_words(&words)?);
-    }
-
-    Ok(classes)
-}
-
-fn classify_words(words: &[String]) -> Result<StatementClass, Error> {
-    match words.first().map(String::as_str) {
-        Some("select") => Ok(StatementClass::Read),
-        Some("insert" | "update" | "delete" | "replace") => Ok(StatementClass::Write),
-        Some("with") => classify_with(words),
-        Some(operation) => Err(Error::rejected(format!(
-            "'{operation}' statements are not permitted by the access policy"
-        ))),
-        None => Err(Error::rejected("statement has no operation")),
+        Statement::Query(query) => classify_query(query),
+        _ => Err(Error::rejected(
+            "statement is not permitted by the access policy",
+        )),
     }
 }
 
-fn classify_with(words: &[String]) -> Result<StatementClass, Error> {
-    words
-        .iter()
-        .skip(1)
-        .find(|word| {
-            matches!(
-                word.as_str(),
-                "select" | "insert" | "update" | "delete" | "replace"
-            )
-        })
-        .map(|word| {
-            if word == "select" {
-                StatementClass::Read
-            } else {
-                StatementClass::Write
-            }
-        })
-        .ok_or_else(|| Error::rejected("'with' statement has no recognized data operation"))
+fn classify_query(query: &Query) -> Result<StatementClass, Error> {
+    match &*query.body {
+        SetExpr::Insert(_) | SetExpr::Update(_) | SetExpr::Delete(_) | SetExpr::Merge(_) => {
+            Ok(StatementClass::Write)
+        }
+        SetExpr::Select(_)
+        | SetExpr::Query(_)
+        | SetExpr::SetOperation { .. }
+        | SetExpr::Values(_)
+        | SetExpr::Table(_) => Ok(StatementClass::Read),
+    }
+}
+
+fn normalized(sql: &str) -> Cow<'_, str> {
+    let leading = sql.trim_start();
+    let prefix = leading.get(.."REPLACE".len()).unwrap_or_default();
+    if !prefix.eq_ignore_ascii_case("REPLACE") {
+        return Cow::Borrowed(sql);
+    }
+    let rest = &leading["REPLACE".len()..];
+    let is_boundary = rest
+        .chars()
+        .next()
+        .is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '_'));
+    if !is_boundary {
+        return Cow::Borrowed(sql);
+    }
+
+    let start = sql.len() - leading.len();
+    let mut out = String::with_capacity(sql.len() + 8);
+    out.push_str(&sql[..start]);
+    out.push_str("INSERT OR REPLACE");
+    out.push_str(&sql[start + "REPLACE".len()..]);
+    Cow::Owned(out)
 }
