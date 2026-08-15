@@ -42,8 +42,9 @@ interpolated into the SQL string.
 
 `squeal` must be a JSON object describing one query. It is an alternative to,
 not an addition to, `sql`; requests containing both fields or neither field are
-invalid. Squeal values are compiled to SQL with bound values, so client data
-never becomes generated SQL text.
+invalid. Squeal is compiled into parameterized SQLite SQL before execution;
+Squeal values and identifiers are validated, so client data never becomes
+arbitrary SQL text.
 
 ```json
 {
@@ -55,11 +56,9 @@ never becomes generated SQL text.
 }
 ```
 
-Squeal is recognized by the server but is not yet supported; such requests
-currently fail with a `squeal_unsupported` error until the Squeal compiler
-lands. See the [Squeal query language](squeal.md) for the structured-language
-contract. `params` is accepted only with raw `sql`; Squeal encodes its values
-in the Squeal object.
+See the [Squeal query language](squeal.md) for the structured-language
+contract, including its identifier grammar. `params` is accepted only with raw
+`sql`; Squeal encodes its values in the Squeal object.
 
 ## Successful Responses
 
@@ -106,7 +105,7 @@ Error codes are stable and machine-readable. The full mapping:
 | HTTP status | Error code | Condition |
 | --- | --- | --- |
 | `400` | `invalid_request` | Invalid JSON, missing or conflicting fields, empty `sql`, invalid parameter shapes. |
-| `400` | `squeal_unsupported` | A `squeal` field was supplied before the Squeal compiler is available. |
+| `400` | `invalid_squeal` | Invalid or unsupported Squeal: unknown operation, invalid field types, or identifier-syntax errors. |
 | `400` | `unknown_database` | The `db` field names a database that is not configured. |
 | `400` | `invalid_sql` | SQL syntax, `no such table`, or `no such column` failures. |
 | `400` | `constraint_violation` | A `UNIQUE`, `NOT NULL`, `PRIMARY KEY`, `FOREIGN KEY`, or `CHECK` constraint failed. |
@@ -116,7 +115,8 @@ Error codes are stable and machine-readable. The full mapping:
 
 ## Acceptance Criteria
 
-- A client can execute allowed raw SQL queries through `POST /api/query`.
+- A client can execute allowed raw SQL and Squeal queries through
+  `POST /api/query`.
 - Parameter values never change SQL syntax through string interpolation.
 - Responses have a consistent JSON shape for both row and non-row statements.
 - Invalid requests and execution failures provide safe JSON error responses.

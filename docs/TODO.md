@@ -33,7 +33,7 @@ health or readiness endpoint, and exits cleanly on shutdown.
 - [x] Create an execution module using SQLx prepared queries that accepts raw
   SQL plus bound values or compiled Squeal, then returns rows, column metadata,
   and write metadata.
-- [ ] Implement a Squeal parser, validator, and compiler that converts its JSON
+- [x] Implement a Squeal parser, validator, and compiler that converts its JSON
   AST into SQLite SQL plus bound values; do not accept arbitrary SQL fragments
   within Squeal fields.
 - [x] Model supported JSON values and convert them safely to and from SQLite
@@ -54,12 +54,11 @@ query rows, and receive correctly typed execution results.
 - [x] Set up Axum routes, extractors, application state, and Serde JSON
   request/response types.
 - [x] Implement request validation requiring exactly one of a non-empty `sql`
-  string or a `squeal` object; accept `params` only with raw `sql`. A `squeal`
-  request is recognized and rejected with a `squeal_unsupported` error until
-  the Squeal compiler lands.
+  string or a `squeal` object; accept `params` only with raw `sql`. Squeal is
+  compiled and executed; `squeal` with `sql` or `params` is rejected.
 - [x] Bind raw `params` through SQLite's parameter API; never construct SQL by
-  interpolating client data. Squeal literal values are bound after the Squeal
-  compiler lands.
+  interpolating client data. Squeal literals introduced by future operations
+  are emitted as bound parameters by the compiler.
 - [x] Implement the response envelope with `meta` and `rows` for every
   successful statement.
 - [x] Return column names and row count for row-producing statements.

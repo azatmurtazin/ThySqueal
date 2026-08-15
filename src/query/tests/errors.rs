@@ -26,7 +26,7 @@ async fn rejects_both_sql_and_squeal() {
     .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(body["error"]["code"], "squeal_unsupported");
+    assert_eq!(body["error"]["code"], "invalid_request");
 }
 
 #[tokio::test]
@@ -40,7 +40,31 @@ async fn rejects_empty_sql() {
 }
 
 #[tokio::test]
-async fn rejects_squeal_requests() {
+async fn rejects_params_without_sql() {
+    let app = test_router(HashMap::from([("main".to_owned(), memory_pool().await)]));
+
+    let (status, body) = post_json(&app, json!({ "params": [1] })).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], "invalid_request");
+}
+
+#[tokio::test]
+async fn rejects_params_with_squeal() {
+    let app = test_router(HashMap::from([("main".to_owned(), memory_pool().await)]));
+
+    let (status, body) = post_json(
+        &app,
+        json!({ "squeal": { "_": "select", "from": "items", "cols": ["*"] }, "params": [1] }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], "invalid_request");
+}
+
+#[tokio::test]
+async fn rejects_invalid_squeal() {
     let app = test_router(HashMap::from([("main".to_owned(), memory_pool().await)]));
 
     let (status, body) = post_json(
@@ -50,17 +74,7 @@ async fn rejects_squeal_requests() {
     .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(body["error"]["code"], "squeal_unsupported");
-}
-
-#[tokio::test]
-async fn rejects_params_without_sql() {
-    let app = test_router(HashMap::from([("main".to_owned(), memory_pool().await)]));
-
-    let (status, body) = post_json(&app, json!({ "params": [1] })).await;
-
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(body["error"]["code"], "invalid_request");
+    assert_eq!(body["error"]["code"], "invalid_squeal");
 }
 
 #[tokio::test]

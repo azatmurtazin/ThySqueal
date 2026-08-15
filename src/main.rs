@@ -5,6 +5,7 @@ mod execution;
 mod logging;
 mod query;
 mod shutdown;
+mod squeal;
 mod value;
 
 use std::process::ExitCode;

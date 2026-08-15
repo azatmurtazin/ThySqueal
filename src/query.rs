@@ -13,6 +13,7 @@ use serde_json::Value as JsonValue;
 
 use crate::app::AppState;
 use crate::execution;
+use crate::squeal;
 use crate::value::Value;
 
 pub(crate) use self::error::QueryError;
@@ -64,8 +65,23 @@ pub(crate) async fn execute_query(
 }
 
 fn parse_request(request: QueryRequest) -> Result<ParsedQuery, QueryError> {
-    if request.squeal.is_some() {
-        return Err(QueryError::SquealUnsupported);
+    if let Some(squeal) = request.squeal {
+        if request.sql.is_some() {
+            return Err(QueryError::invalid_request(
+                "provide exactly one of sql or squeal",
+            ));
+        }
+        if request.params.is_some() {
+            return Err(QueryError::invalid_request(
+                "params is accepted only with raw sql",
+            ));
+        }
+        let compiled = squeal::compile(&squeal).map_err(QueryError::Squeal)?;
+        return Ok(ParsedQuery {
+            db: request.db,
+            sql: compiled.sql,
+            params: compiled.params,
+        });
     }
     let sql = match request.sql {
         Some(sql) if !sql.trim().is_empty() => sql,

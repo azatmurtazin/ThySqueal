@@ -6,12 +6,13 @@ use axum::{
 use serde::Serialize;
 
 use crate::execution;
+use crate::squeal::SquealError;
 
 #[derive(Debug)]
 pub(crate) enum QueryError {
     InvalidRequest(String),
     UnknownDatabase(String),
-    SquealUnsupported,
+    Squeal(SquealError),
     Execution(execution::Error),
 }
 
@@ -32,9 +33,9 @@ impl IntoResponse for QueryError {
                 StatusCode::BAD_REQUEST,
                 ErrorDetail::new("unknown_database", format!("unknown database '{name}'")),
             ),
-            Self::SquealUnsupported => (
+            Self::Squeal(error) => (
                 StatusCode::BAD_REQUEST,
-                ErrorDetail::new("squeal_unsupported", "squeal is not yet supported"),
+                ErrorDetail::new("invalid_squeal", error.to_string()),
             ),
             Self::Execution(execution::Error::InvalidQuery(message)) => (
                 StatusCode::BAD_REQUEST,

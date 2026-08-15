@@ -52,6 +52,24 @@ async fn reports_write_metadata() {
 }
 
 #[tokio::test]
+async fn runs_squeal_select() {
+    let pool = memory_pool().await;
+    seed_items(&pool).await;
+    let app = test_router(HashMap::from([("main".to_owned(), pool.clone())]));
+
+    let (status, body) = post_json(
+        &app,
+        json!({ "squeal": { "_": "select", "from": "items", "cols": ["id", "name"] } }),
+    )
+    .await;
+
+    assert_eq!(status, axum::http::StatusCode::OK);
+    assert_eq!(body["meta"]["columns"], json!(["id", "name"]));
+    assert_eq!(body["meta"]["row_count"], 2);
+    assert_eq!(body["rows"][0], json!({ "id": 1, "name": "widget" }));
+}
+
+#[tokio::test]
 async fn selects_configured_database() {
     let main = memory_pool().await;
     seed_items(&main).await;

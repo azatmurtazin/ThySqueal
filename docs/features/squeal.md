@@ -24,6 +24,15 @@ identifiers against Squeal's identifier grammar before compiling the object to
 SQLite SQL. It must never treat a string from a Squeal field as an arbitrary
 SQL fragment.
 
+The identifier grammar is `[A-Za-z_][A-Za-z0-9_]*`; anything else is rejected.
+`"*"` is accepted only as the sole entry of `cols`. Unsupported fields and
+operations are rejected rather than ignored, so a misspelled or unsupported
+Squeal form never silently compiles to something unintended.
+
+The `select` form compiles to `SELECT <cols> FROM <from>` with no bound
+parameters. Later operations add literals, which are converted to bound SQLite
+parameters by the compiler.
+
 ## Request Contract
 
 Squeal is supplied as the `squeal` field of `POST /api/query`:
