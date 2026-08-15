@@ -3,4 +3,5 @@
 /db/*.db-shm
 /db/*.db-wal
 /.pytest_cache
+/.venv
 __pycache__/

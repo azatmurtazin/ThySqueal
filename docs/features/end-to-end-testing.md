@@ -16,19 +16,20 @@ testing process startup, networking, serialization, and feature integration.
 
 ## Setup and Layout
 
-Prerequisites: a Rust toolchain to build the server binary, and Python 3.10+
-with `pytest` and `httpx`.
+Prerequisites: a Rust toolchain to build the server binary, Python 3.10+, and
+[`uv`](https://docs.astral.sh/uv/).
 
 ```sh
 cargo build
-python3 -m venv .venv
-.venv/bin/pip install -r tests/requirements-dev.txt
-just test-e2e PYTHON=.venv/bin/python
+uv sync
+just test-e2e
 ```
 
-The `test-e2e` recipe builds the binary and runs the suite. The `THYSQUEAL_BIN`
-environment variable overrides the server binary location when running pytest
-directly. The suite lives under `tests/`:
+The `test-e2e` recipe builds the binary and runs `uv run pytest tests`, which
+creates a `.venv` from the `dev` dependency group declared in `pyproject.toml`
+and a `uv.lock` lockfile. The `THYSQUEAL_BIN` environment variable overrides
+the server binary location when running pytest directly. The suite lives under
+`tests/`:
 
 - `harness.py` starts and stops real server processes on ephemeral ports, seeds
   isolated SQLite databases before startup, writes the YAML configuration, and
