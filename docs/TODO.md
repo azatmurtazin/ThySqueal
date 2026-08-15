@@ -29,7 +29,7 @@ health or readiness endpoint, and exits cleanly on shutdown.
 
 - [x] Open a SQLx `SqlitePool` during startup and surface failures as clear
   startup errors.
-- [ ] Set deliberate SQLite connection options, busy timeout, and pragmas.
+- [x] Set deliberate SQLite connection options, busy timeout, and pragmas.
 - [x] Create an execution module using SQLx prepared queries that accepts raw
   SQL plus bound values or compiled Squeal, then returns rows, column metadata,
   and write metadata.

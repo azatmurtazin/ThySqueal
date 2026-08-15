@@ -20,8 +20,10 @@ part of graceful shutdown.
 - Startup fails clearly if any database cannot be opened or initialized.
 - The set of databases, their locations, and SQLite connection settings are
   configuration, not request input.
-- SQLite pragmas and journaling mode are configured deliberately for the
-  deployment rather than relying on implicit defaults.
+- SQLite pragmas and journaling mode are configured deliberately rather than
+  relying on implicit defaults: foreign keys are enabled, the journal mode is
+  WAL, and the busy timeout is 5 seconds. Pools size connections to the
+  configured `max_connections`.
 
 ## Execution Semantics
 

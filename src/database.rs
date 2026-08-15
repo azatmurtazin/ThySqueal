@@ -8,6 +8,9 @@ use thiserror::Error;
 
 use crate::config::{Config, DatabaseConfig};
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) type Registry = HashMap<String, SqlitePool>;
 
 #[derive(Debug, Error)]
