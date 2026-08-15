@@ -1,7 +1,11 @@
 use super::{Error, StatementClass, classify};
 
 fn classes(sql: &str) -> Vec<StatementClass> {
-    classify(sql).expect("classification")
+    classify(sql).expect("classification").classes
+}
+
+fn cacheable(sql: &str) -> bool {
+    classify(sql).expect("classification").cacheable
 }
 
 #[test]
@@ -133,9 +137,9 @@ fn rejects_unsupported_statement_shapes() {
 
 #[test]
 fn accepts_empty_and_comment_only_input() {
-    assert_eq!(classify("").unwrap(), vec![]);
-    assert_eq!(classify("   ").unwrap(), vec![]);
-    assert_eq!(classify("-- just a comment").unwrap(), vec![]);
+    assert_eq!(classes(""), vec![]);
+    assert_eq!(classes("   "), vec![]);
+    assert_eq!(classes("-- just a comment"), vec![]);
 }
 
 #[test]
@@ -148,4 +152,40 @@ fn distinguishes_syntax_errors_from_rejections() {
         classify("DROP TABLE items"),
         Err(Error::Rejected { .. })
     ));
+}
+
+#[test]
+fn marks_simple_selects_cacheable() {
+    assert!(cacheable("SELECT 1"));
+    assert!(cacheable(
+        "SELECT id FROM items WHERE price > ? AND name = 'widget'"
+    ));
+    assert!(cacheable(
+        "WITH top AS (SELECT * FROM items ORDER BY price DESC LIMIT 1) SELECT * FROM top"
+    ));
+}
+
+#[test]
+fn marks_nondeterministic_selects_not_cacheable() {
+    for sql in [
+        "SELECT random()",
+        "SELECT randomblob(8)",
+        "SELECT CURRENT_TIMESTAMP",
+        "SELECT CURRENT_DATE",
+        "SELECT strftime('%s', 'now')",
+        "SELECT date('now')",
+        "SELECT last_insert_rowid()",
+        "SELECT changes()",
+        "SELECT total_changes()",
+        "SELECT unixepoch('now')",
+    ] {
+        assert!(!cacheable(sql), "expected bypass for {sql:?}");
+    }
+}
+
+#[test]
+fn marks_multiple_and_writes_not_cacheable() {
+    assert!(!cacheable("SELECT 1; SELECT 2"));
+    assert!(!cacheable("INSERT INTO items (name) VALUES ('widget')"));
+    assert!(!cacheable("UPDATE items SET price = 1.0 WHERE id = 1"));
 }

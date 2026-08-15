@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
     extract::State,
@@ -16,12 +18,14 @@ use tower_http::{
 };
 use uuid::Uuid;
 
+use crate::cache::SelectCache;
 use crate::config::Config;
 use crate::database::Registry;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) databases: Registry,
+    pub(crate) cache: Arc<SelectCache>,
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {

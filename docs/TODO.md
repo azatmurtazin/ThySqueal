@@ -77,15 +77,15 @@ receive documented responses.
 
 ## 4. Query Classification and Cache Boundary
 
-- [ ] Classify raw SQL and compiled Squeal statements as cacheable read,
+- [x] Classify raw SQL and compiled Squeal statements as cacheable read,
   data-changing write, or uncached operation using a conservative policy.
-- [ ] Initially cache only unambiguous, read-only `SELECT` statements.
-- [ ] Explicitly bypass caching for non-deterministic or unsupported queries.
-- [ ] Define a canonical cache key from compiled SQL and a type-preserving
+- [x] Initially cache only unambiguous, read-only `SELECT` statements.
+- [x] Explicitly bypass caching for non-deterministic or unsupported queries.
+- [x] Define a canonical cache key from compiled SQL and a type-preserving
   serialization of all bound parameters, independent of whether the client
   used raw SQL or Squeal.
-- [ ] Define immutable cached result data matching the HTTP response envelope.
-- [ ] Store cache entries in DashMap and keep cache operations safe under
+- [x] Define immutable cached result data matching the HTTP response envelope.
+- [x] Store cache entries in DashMap and keep cache operations safe under
   concurrent requests.
 
 **Done when:** logically distinct requests, including requests whose parameters
@@ -93,15 +93,15 @@ have different values or types, cannot share a cache entry.
 
 ## 5. In-Memory Select Cache
 
-- [ ] Implement DashMap cache lookup before SQLx execution for cacheable reads.
-- [ ] Store successful eligible read results after SQLite execution.
-- [ ] Track entry size, creation time, last access, and mark state.
-- [ ] Invalidate all cached selects after each successful write as the initial
+- [x] Implement DashMap cache lookup before SQLx execution for cacheable reads.
+- [x] Store successful eligible read results after SQLite execution.
+- [x] Track entry size, creation time, last access, and mark state.
+- [x] Invalidate all cached selects after each successful write as the initial
   correctness-first policy.
-- [ ] Add counters for hits, misses, stores, invalidations, collection runs,
+- [x] Add counters for hits, misses, stores, invalidations, collection runs,
   and swept entries.
-- [ ] Add configuration for maximum entries and/or maximum bytes, collection
-  threshold, and optional collection interval.
+- [x] Add configuration for the maximum entry count. Collection threshold and
+  interval config arrive with the mark-and-sweep collector in Milestone 6.
 
 **Done when:** repeated eligible reads avoid a second database execution and a
 successful write prevents any stale cached result from being served.

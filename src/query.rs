@@ -1,6 +1,9 @@
 mod error;
+mod response;
 #[cfg(test)]
 mod tests;
+
+use std::sync::Arc;
 
 use axum::{
     Json,
@@ -8,12 +11,14 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
 use crate::app::AppState;
+use crate::cache;
 use crate::execution;
 use crate::policy;
+use crate::policy::StatementClass;
 use crate::squeal;
 use crate::value::Value;
 
@@ -54,19 +59,73 @@ pub(crate) async fn execute_query(
         Err(error) => return error.into_response(),
     };
 
-    if let Err(error) = policy::classify(&parsed.sql) {
-        return QueryError::Policy(error).into_response();
-    }
+    let classification = match policy::classify(&parsed.sql) {
+        Ok(classification) => classification,
+        Err(error) => return QueryError::Policy(error).into_response(),
+    };
 
     let pool = match state.databases.get(&parsed.db) {
         Some(pool) => pool,
         None => return QueryError::UnknownDatabase(parsed.db).into_response(),
     };
 
+    let key = cache::build_key(&parsed.db, &parsed.sql, &parsed.params);
+
+    if classification.cacheable {
+        if let Some(cached) = state.cache.lookup(&key) {
+            return (
+                StatusCode::OK,
+                Json(response::build_cached_response(&cached)),
+            )
+                .into_response();
+        }
+        state.cache.record_miss();
+    }
+
     match execution::execute(pool, &parsed.sql, &parsed.params).await {
-        Ok(result) => (StatusCode::OK, Json(build_response(result))).into_response(),
+        Ok(result) => {
+            if is_write(&classification.classes) {
+                state.cache.invalidate_all();
+            }
+            if classification.cacheable
+                && let Some(cached) = store_cached_result(&state, key, &result)
+            {
+                return (
+                    StatusCode::OK,
+                    Json(response::build_cached_response(&cached)),
+                )
+                    .into_response();
+            }
+            (StatusCode::OK, Json(response::build_response(&result))).into_response()
+        }
         Err(error) => QueryError::Execution(error).into_response(),
     }
+}
+
+fn is_write(classes: &[StatementClass]) -> bool {
+    classes
+        .iter()
+        .any(|class| matches!(class, StatementClass::Write))
+}
+
+fn store_cached_result(
+    state: &AppState,
+    key: cache::CacheKey,
+    result: &execution::ExecutionResult,
+) -> Option<Arc<cache::CachedResult>> {
+    if result.columns.is_empty() {
+        return None;
+    }
+    let rows = result
+        .rows
+        .iter()
+        .map(|row| response::row_to_json(&result.columns, row))
+        .collect();
+    let cached = cache::CachedResult {
+        columns: result.columns.clone(),
+        rows,
+    };
+    state.cache.store(key, cached)
 }
 
 fn parse_request(request: QueryRequest) -> Result<ParsedQuery, QueryError> {
@@ -114,46 +173,4 @@ fn parse_request(request: QueryRequest) -> Result<ParsedQuery, QueryError> {
         sql,
         params,
     })
-}
-
-fn build_response(result: execution::ExecutionResult) -> QueryResponse {
-    let is_row_statement = !result.columns.is_empty();
-    let rows = result
-        .rows
-        .iter()
-        .map(|row| {
-            let mut object = serde_json::Map::new();
-            for (column, value) in result.columns.iter().zip(row) {
-                object.insert(column.clone(), JsonValue::from(value.clone()));
-            }
-            JsonValue::Object(object)
-        })
-        .collect();
-
-    let meta = Meta {
-        columns: is_row_statement.then_some(result.columns),
-        row_count: is_row_statement.then_some(result.rows.len() as u64),
-        rows_affected: (!is_row_statement).then_some(result.rows_affected),
-        last_insert_id: (!is_row_statement).then_some(result.last_insert_id),
-    };
-
-    QueryResponse { meta, rows }
-}
-
-#[derive(Debug, Serialize)]
-struct Meta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    columns: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    row_count: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    rows_affected: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_insert_id: Option<i64>,
-}
-
-#[derive(Debug, Serialize)]
-struct QueryResponse {
-    meta: Meta,
-    rows: Vec<JsonValue>,
 }

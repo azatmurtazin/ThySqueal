@@ -3,8 +3,9 @@ mod error;
 mod tests;
 
 use std::borrow::Cow;
+use std::ops::ControlFlow;
 
-use sqlparser::ast::{Query, SetExpr, Statement};
+use sqlparser::ast::{Expr, ObjectNamePart, Query, SetExpr, Statement, Visit, Visitor};
 use sqlparser::dialect::SQLiteDialect;
 use sqlparser::parser::Parser;
 
@@ -18,16 +19,86 @@ pub(crate) enum StatementClass {
     Write,
 }
 
-pub(crate) fn classify(sql: &str) -> Result<Vec<StatementClass>, Error> {
+pub(crate) struct Classification {
+    pub(crate) classes: Vec<StatementClass>,
+    pub(crate) cacheable: bool,
+}
+
+pub(crate) fn classify(sql: &str) -> Result<Classification, Error> {
     if sql.trim().is_empty() {
-        return Ok(Vec::new());
+        return Ok(Classification {
+            classes: Vec::new(),
+            cacheable: false,
+        });
     }
 
     let dialect = SQLiteDialect {};
     let statements = Parser::parse_sql(&dialect, &normalized(sql))
         .map_err(|error| Error::invalid_syntax(error.to_string()))?;
 
-    statements.iter().map(classify_statement).collect()
+    let classes = statements
+        .iter()
+        .map(classify_statement)
+        .collect::<Result<Vec<_>, _>>()?;
+    let cacheable = matches!(classes.as_slice(), [StatementClass::Read])
+        && is_deterministic_query(&statements[0]);
+
+    Ok(Classification { classes, cacheable })
+}
+
+fn is_deterministic_query(statement: &Statement) -> bool {
+    match statement {
+        Statement::Query(query) => {
+            let mut visitor = FunctionVisitor {
+                nondeterministic: false,
+            };
+            let _ = query.visit(&mut visitor);
+            !visitor.nondeterministic
+        }
+        _ => false,
+    }
+}
+
+const NON_DETERMINISTIC_FUNCTIONS: &[&str] = &[
+    "changes",
+    "current_date",
+    "current_time",
+    "current_timestamp",
+    "date",
+    "datetime",
+    "julianday",
+    "last_insert_rowid",
+    "localtime",
+    "localtimestamp",
+    "random",
+    "randomblob",
+    "strftime",
+    "time",
+    "total_changes",
+    "unixepoch",
+];
+
+struct FunctionVisitor {
+    nondeterministic: bool,
+}
+
+impl Visitor for FunctionVisitor {
+    type Break = ();
+
+    fn post_visit_expr(&mut self, expr: &Expr) -> ControlFlow<Self::Break> {
+        if let Expr::Function(function) = expr {
+            let name = function
+                .name
+                .0
+                .first()
+                .and_then(ObjectNamePart::as_ident)
+                .map(|ident| ident.value.to_ascii_lowercase());
+            if name.is_some_and(|name| NON_DETERMINISTIC_FUNCTIONS.contains(&name.as_str())) {
+                self.nondeterministic = true;
+            }
+        }
+        ControlFlow::Continue(())
+    }
 }
 
 fn classify_statement(statement: &Statement) -> Result<StatementClass, Error> {

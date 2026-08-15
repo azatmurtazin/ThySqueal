@@ -1,7 +1,9 @@
+mod cache;
 mod errors;
 mod success;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use axum::{
     Router,
@@ -13,6 +15,7 @@ use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use tower::ServiceExt;
 
 use crate::app::AppState;
+use crate::cache::SelectCache;
 use crate::config::Config;
 
 pub(crate) async fn memory_pool() -> SqlitePool {
@@ -24,7 +27,14 @@ pub(crate) async fn memory_pool() -> SqlitePool {
 }
 
 pub(crate) fn test_router(databases: HashMap<String, SqlitePool>) -> Router {
-    crate::app::router(AppState { databases }, &Config::default())
+    test_router_with_cache(databases, Arc::new(SelectCache::new(1000)))
+}
+
+pub(crate) fn test_router_with_cache(
+    databases: HashMap<String, SqlitePool>,
+    cache: Arc<SelectCache>,
+) -> Router {
+    crate::app::router(AppState { databases, cache }, &Config::default())
 }
 
 pub(crate) async fn seed_items(pool: &SqlitePool) {
