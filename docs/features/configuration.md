@@ -9,6 +9,8 @@ command line argument.
 
 ## Configuration File
 
+> Default port number is `5931 -> 59u3a1 -> squeal`.
+
 Every field is optional. Omitted fields use the documented defaults. An example
 with all defaults is checked in as `thy-squeal.yaml`:
 

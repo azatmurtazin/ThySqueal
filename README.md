@@ -17,6 +17,9 @@ request tracing, and DashMap for the custom mark-and-sweep query cache. See the
 - [Product requirements](docs/PRD.md) — project goals, API outline, storage,
   caching, long polling, and testing scope.
 - [Implementation TODO](docs/TODO.md) — milestone-based development plan.
+
+### Features
+
 - [HTTP query API](docs/features/http-api.md)
 - [Configuration](docs/features/configuration.md)
 - [Squeal query language](docs/features/squeal.md)
