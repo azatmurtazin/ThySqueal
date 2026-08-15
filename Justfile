@@ -6,3 +6,12 @@ build-dev:
 
 run-dev:
   ./target/debug/thy-squeal
+
+fmt:
+  cargo fmt --check
+
+lint:
+  cargo clippy --all-targets -- -D warnings
+
+test:
+  cargo test --all-targets

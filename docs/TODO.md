@@ -6,20 +6,20 @@ the next one.
 
 ## 1. Project Foundation
 
-- [ ] Add the selected Rust dependencies: Axum, Tokio, Serde, `serde_json`,
+- [x] Add the selected Rust dependencies: Axum, Tokio, Serde, `serde_json`,
   SQLx with SQLite support, Tower, `tower-http`, Tracing,
   `tracing-subscriber`, DashMap, and `thiserror`.
-- [ ] Configure only the required crate features: Tokio runtime, networking,
+- [x] Configure only the required crate features: Tokio runtime, networking,
   synchronization, timers, and signal handling; SQLx Tokio and SQLite support;
   and Tower HTTP tracing, request-ID, panic-catching, timeout, and size-limit
   layers.
-- [ ] Define the executable entry point and a configuration model for database
+- [x] Define the executable entry point and a configuration model for database
   path, bind address, request limits, cache limits, and long-poll timeout.
-- [ ] Add structured logging with `tracing`, request IDs from `tower-http`, and
+- [x] Add structured logging with `tracing`, request IDs from `tower-http`, and
   `tracing-subscriber` environment-filtered log levels.
-- [ ] Define a server lifecycle: load configuration, open SQLite, initialize
+- [x] Define a server lifecycle: load configuration, open SQLite, initialize
   shared state, listen for requests, and gracefully shut down.
-- [ ] Add development commands for formatting, linting, unit tests, and running
+- [x] Add development commands for formatting, linting, unit tests, and running
   the server locally.
 
 **Done when:** the server starts with an empty SQLite database, exposes a
