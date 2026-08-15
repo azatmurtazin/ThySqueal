@@ -45,7 +45,7 @@ health or readiness endpoint, and exits cleanly on shutdown.
 **Done when:** a Rust-level test can create a table, insert bound values,
 query rows, and receive correctly typed execution results.
 
-## 3. JSON API: `POST /squeal`
+## 3. JSON API: `POST /api/query`
 
 - [ ] Set up Axum routes, extractors, application state, and Serde JSON
   request/response types.
@@ -156,7 +156,7 @@ database unavailability, and leaked-or-excessive waiters from logs or metrics.
 - [ ] Choose Python test and HTTP-client libraries and document setup.
 - [ ] Build fixtures that create a temporary database, start the binary on an
   available port, wait for readiness, and always tear down the process.
-- [ ] Test successful parameterized reads and writes through `POST /squeal`.
+- [ ] Test successful parameterized reads and writes through `POST /api/query`.
 - [ ] Test `null`, numeric, string, and boundary parameter values.
 - [ ] Test result columns, rows, write metadata, invalid JSON, invalid fields,
   SQL policy rejection, and SQLite constraint failures.

@@ -8,14 +8,14 @@ machine-readable response format.
 
 ## Implementation
 
-Axum supplies the router, `POST /squeal` handler, JSON extractors, and shared
+Axum supplies the router, `POST /api/query` handler, JSON extractors, and shared
 application state. Serde and `serde_json` define and serialize the request,
 response, and error types. Tower and `tower-http` enforce request-size and
 timeout limits, attach request IDs, catch panics, and emit HTTP tracing data.
 
 ## Endpoint
 
-`POST /squeal` accepts one SQL statement and its bound parameters.
+`POST /api/query` accepts one SQL statement and its bound parameters.
 
 Requests must use `Content-Type: application/json`.
 
@@ -72,7 +72,7 @@ Unavailable` when the database cannot serve requests.
 
 ## Acceptance Criteria
 
-- A client can execute parameterized reads and writes through `POST /squeal`.
+- A client can execute parameterized reads and writes through `POST /api/query`.
 - Parameter values never change SQL syntax through string interpolation.
 - Responses have a consistent JSON shape for both row and non-row statements.
 - Invalid requests and execution failures provide safe JSON error responses.

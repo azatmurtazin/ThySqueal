@@ -30,7 +30,7 @@ that need database access without managing a direct SQLite connection.
 
 ### Execute SQL
 
-`POST /squeal` executes a SQL statement.
+`POST /api/query` executes a SQL statement.
 
 Request:
 
