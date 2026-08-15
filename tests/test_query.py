@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from harness import ServerHarness
@@ -203,3 +205,23 @@ def test_response_shape_is_stable(client):
     assert set(body.keys()) == {"meta", "rows"}
     assert body["meta"]["columns"] == ["name"]
     assert body["meta"]["row_count"] == 1
+
+
+def test_locked_database_returns_unavailable(server, client):
+    locker = sqlite3.connect(server.tmp / "main.db")
+    try:
+        locker.execute("BEGIN EXCLUSIVE")
+        response = client.post(
+            "/api/query",
+            json={"sql": "INSERT INTO items (name, price) VALUES (?, ?)", "params": ["blocked", 1.0]},
+        )
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "unavailable"
+    finally:
+        locker.rollback()
+        locker.close()
+    recovery = client.post(
+        "/api/query",
+        json={"sql": "INSERT INTO items (name, price) VALUES (?, ?)", "params": ["recovered", 2.0]},
+    )
+    assert recovery.status_code == 200

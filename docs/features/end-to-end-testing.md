@@ -52,7 +52,9 @@ the server binary location when running pytest directly. The suite lives under
   `sql` and `squeal`, and `params` combined with `squeal`.
 - Result metadata, row serialization, non-row statement responses, and JSON
   error bodies.
-- SQLite constraint failures and unknown-database requests.
+- SQLite constraint failures, unknown-database requests, and locked databases
+  (an external exclusive lock makes writes fail with 503 `unavailable` until
+  the lock is released).
 - Cache hit behavior, parameter-sensitive keys, write invalidation, and
   mark-and-sweep removal of unused entries.
 - Long-poll event delivery, timeout, malformed input, concurrent waiters, and
