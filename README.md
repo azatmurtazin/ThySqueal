@@ -18,6 +18,7 @@ request tracing, and DashMap for the custom mark-and-sweep query cache. See the
   caching, long polling, and testing scope.
 - [Implementation TODO](docs/TODO.md) — milestone-based development plan.
 - [HTTP query API](docs/features/http-api.md)
+- [Configuration](docs/features/configuration.md)
 - [Squeal query language](docs/features/squeal.md)
 - [SQLite storage](docs/features/sqlite-storage.md)
 - [In-memory select cache](docs/features/select-cache.md)

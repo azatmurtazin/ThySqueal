@@ -1,0 +1,19 @@
+# ThySqueal server configuration.
+# Every field is optional; omitted fields use the defaults shown here.
+# A different file can be selected with `thy-squeal --config <path>`.
+
+bind_address: "127.0.0.1:3000"
+
+database:
+  path: "db/thy-squeal.db"
+  max_connections: 5
+
+request:
+  body_limit_bytes: 1048576
+  timeout_seconds: 30
+
+long_poll:
+  timeout_seconds: 30
+
+cache:
+  max_entries: 1000
