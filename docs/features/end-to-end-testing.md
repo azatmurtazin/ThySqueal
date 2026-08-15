@@ -14,19 +14,55 @@ testing process startup, networking, serialization, and feature integration.
 - Tests send real HTTP requests and parse JSON responses.
 - Teardown stops the server and removes temporary data, even after failures.
 
+## Setup and Layout
+
+Prerequisites: a Rust toolchain to build the server binary, and Python 3.10+
+with `pytest` and `httpx`.
+
+```sh
+cargo build
+python3 -m venv .venv
+.venv/bin/pip install -r tests/requirements-dev.txt
+just test-e2e PYTHON=.venv/bin/python
+```
+
+The `test-e2e` recipe builds the binary and runs the suite. The `THYSQUEAL_BIN`
+environment variable overrides the server binary location when running pytest
+directly. The suite lives under `tests/`:
+
+- `harness.py` starts and stops real server processes on ephemeral ports, seeds
+  isolated SQLite databases before startup, writes the YAML configuration, and
+  exposes `/readyz`-based readiness and `/api/diagnostics` signals.
+- `conftest.py` provides `harness` (server factory), `server`, and `client`
+  fixtures that always tear the process down.
+- `test_query.py` exercises `POST /api/query`: parameterized reads and writes,
+  Squeal selects, validation, and error mapping.
+- `test_cache.py` verifies hit/miss counters, parameter-sensitive keys, write
+  invalidation, and deterministic mark-and-sweep collection.
+- `test_events.py` verifies long-poll delivery, timeout, validation, waiter
+  limits, disconnect cleanup, and shutdown behavior.
+- `test_ops.py` verifies `/healthz`, `/readyz`, diagnostics JSON, and the HTML
+  dashboard.
+
 ## Required Coverage
 
-- Parameterized raw-SQL reads and writes, nulls, numeric values, strings, and
-  invalid parameter counts.
-- Valid Squeal selects, Squeal compilation and binding behavior, malformed
-  Squeal objects, and requests containing both `sql` and `squeal`.
+- Parameterized raw-SQL reads and writes, nulls, numeric values, and strings.
+- Valid Squeal selects, malformed Squeal objects, requests containing both
+  `sql` and `squeal`, and `params` combined with `squeal`.
 - Result metadata, row serialization, non-row statement responses, and JSON
   error bodies.
-- SQLite constraint and unavailable/locked-database failure paths.
+- SQLite constraint failures and unknown-database requests.
 - Cache hit behavior, parameter-sensitive keys, write invalidation, and
   mark-and-sweep removal of unused entries.
 - Long-poll event delivery, timeout, malformed input, concurrent waiters, and
   client disconnect cleanup.
+
+Parameter-count mismatches are not validated by the server: SQLite silently
+binds `NULL` to unbound placeholders and ignores surplus bindings, so no
+HTTP-level test asserts on them. The per-client waiter limit cannot be
+exercised over HTTP because hyper serializes pipelined requests on a
+connection, so every connection carries at most one active waiter; that limit
+is enforced and tested at the Rust unit level instead.
 
 ## Test Design Principles
 

@@ -15,3 +15,9 @@ lint:
 
 test:
   cargo test --all-targets
+
+PYTHON ?= python3
+
+test-e2e:
+  cargo build
+  $(PYTHON) -m pytest tests

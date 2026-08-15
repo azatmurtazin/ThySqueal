@@ -167,20 +167,20 @@ database unavailability, and leaked-or-excessive waiters from logs or metrics.
 
 ## 9. Python End-to-End Tests
 
-- [ ] Choose Python test and HTTP-client libraries and document setup.
-- [ ] Build fixtures that create a temporary database, start the binary on an
+- [x] Choose Python test and HTTP-client libraries and document setup.
+- [x] Build fixtures that create a temporary database, start the binary on an
   available port, wait for readiness, and always tear down the process.
-- [ ] Test successful parameterized raw-SQL reads and writes through
+- [x] Test successful parameterized raw-SQL reads and writes through
   `POST /api/query`, and valid Squeal selects through the same endpoint.
-- [ ] Test `null`, numeric, string, and boundary parameter values.
-- [ ] Test result columns, rows, write metadata, invalid JSON, invalid fields,
+- [x] Test `null`, numeric, string, and boundary parameter values.
+- [x] Test result columns, rows, write metadata, invalid JSON, invalid fields,
   mutually exclusive `sql`/`squeal` validation, Squeal validation, SQL policy
   rejection, and SQLite constraint failures.
-- [ ] Test cache hits, parameter-sensitive keys, write invalidation, and
+- [x] Test cache hits, parameter-sensitive keys, write invalidation, and
   mark-and-sweep behavior using observable counters or diagnostics.
-- [ ] Test long-poll event delivery, timeout, malformed requests, concurrent
+- [x] Test long-poll event delivery, timeout, malformed requests, concurrent
   waiters, disconnect cleanup, and shutdown behavior.
-- [ ] Ensure all network waits have explicit, short test timeouts and avoid
+- [x] Ensure all network waits have explicit, short test timeouts and avoid
   sleeps when synchronization signals are available.
 
 **Done when:** the suite runs reliably from a clean checkout and exercises all
