@@ -19,6 +19,9 @@ is `POST /api/query`; a request contains exactly one of raw `sql` or structured
   policy; do not replace it with a general-purpose eviction cache.
 - Preserve cache correctness: invalidate cached reads after successful writes.
 - Keep long-poll waiters bounded and cancellation-safe.
+- Write modular code: favor small, single-responsibility types, functions, and
+  modules. Keep source files to 200 lines or fewer; split files that exceed the
+  limit instead of letting them grow.
 
 ## Validation
 
