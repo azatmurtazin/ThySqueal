@@ -6,6 +6,13 @@ SQLite is ThySqueal's persistent data store. It supplies SQL execution,
 durability, transactions, and schema management while ThySqueal supplies the
 remote JSON API and cache behavior.
 
+## Implementation
+
+SQLx provides asynchronous SQLite access through a shared `SqlitePool`. SQLx
+prepared queries bind request values without string interpolation and provide
+dynamic rows and column metadata for the JSON API. The pool is created once at
+startup and closed as part of graceful shutdown.
+
 ## Database Lifecycle
 
 - The server opens a configured SQLite database when it starts.

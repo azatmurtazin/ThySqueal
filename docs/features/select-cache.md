@@ -6,6 +6,14 @@ The select cache lowers latency and SQLite load for recently repeated,
 cacheable `SELECT` requests. It holds response data only in process memory and
 never replaces SQLite as the source of truth.
 
+## Implementation
+
+DashMap holds concurrent cache entries. Each value includes the immutable
+response payload plus mark-and-sweep metadata such as its mark generation,
+estimated size, and last-access information. The project intentionally does
+not use a general-purpose eviction cache: its collector must implement the
+specified mark-and-sweep policy directly.
+
 ## Eligibility and Keys
 
 - Only read-only `SELECT` statements are cache candidates.

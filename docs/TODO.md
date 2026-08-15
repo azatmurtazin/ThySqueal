@@ -6,11 +6,17 @@ the next one.
 
 ## 1. Project Foundation
 
-- [ ] Choose and add Rust dependencies for HTTP serving, JSON serialization,
-  SQLite access, async runtime, configuration, logging, and error handling.
+- [ ] Add the selected Rust dependencies: Axum, Tokio, Serde, `serde_json`,
+  SQLx with SQLite support, Tower, `tower-http`, Tracing,
+  `tracing-subscriber`, DashMap, and `thiserror`.
+- [ ] Configure only the required crate features: Tokio runtime, networking,
+  synchronization, timers, and signal handling; SQLx Tokio and SQLite support;
+  and Tower HTTP tracing, request-ID, panic-catching, timeout, and size-limit
+  layers.
 - [ ] Define the executable entry point and a configuration model for database
   path, bind address, request limits, cache limits, and long-poll timeout.
-- [ ] Add structured logging with request IDs and configurable log level.
+- [ ] Add structured logging with `tracing`, request IDs from `tower-http`, and
+  `tracing-subscriber` environment-filtered log levels.
 - [ ] Define a server lifecycle: load configuration, open SQLite, initialize
   shared state, listen for requests, and gracefully shut down.
 - [ ] Add development commands for formatting, linting, unit tests, and running
@@ -21,11 +27,11 @@ health or readiness endpoint, and exits cleanly on shutdown.
 
 ## 2. SQLite Integration
 
-- [ ] Open the configured SQLite database during startup and surface failures
-  as clear startup errors.
+- [ ] Open a SQLx `SqlitePool` during startup and surface failures as clear
+  startup errors.
 - [ ] Set deliberate SQLite connection options, busy timeout, and pragmas.
-- [ ] Create an execution module that accepts SQL plus bound values and returns
-  rows, column metadata, and write metadata.
+- [ ] Create an execution module using SQLx prepared queries that accepts SQL
+  plus bound values and returns rows, column metadata, and write metadata.
 - [ ] Model supported JSON values and convert them safely to and from SQLite
   values, including `null`, booleans, integers, floats, strings, and blobs if
   blobs are part of the public API.
@@ -41,7 +47,8 @@ query rows, and receive correctly typed execution results.
 
 ## 3. JSON API: `POST /squeal`
 
-- [ ] Set up routing and JSON request/response middleware.
+- [ ] Set up Axum routes, extractors, application state, and Serde JSON
+  request/response types.
 - [ ] Implement request validation for a JSON object containing a non-empty
   `sql` string and optional `params` array.
 - [ ] Bind `params` through SQLite's parameter API; never construct SQL by
@@ -55,7 +62,8 @@ query rows, and receive correctly typed execution results.
   safe, client-useful message.
 - [ ] Map invalid JSON and validation errors to `400`, rejected SQL policy to
   `422`, unavailable database to `503`, and unexpected failures to `500`.
-- [ ] Set response content type and add request body-size limits.
+- [ ] Set response content type and add Tower request body-size and request
+  timeout limits.
 
 **Done when:** a client can execute parameterized `SELECT`, `INSERT`,
 `UPDATE`, and invalid requests through HTTP and receive documented responses.
@@ -69,14 +77,15 @@ query rows, and receive correctly typed execution results.
 - [ ] Define a canonical cache key from normalized SQL and a type-preserving
   serialization of all bound parameters.
 - [ ] Define immutable cached result data matching the HTTP response envelope.
-- [ ] Keep cache operations safe under concurrent requests.
+- [ ] Store cache entries in DashMap and keep cache operations safe under
+  concurrent requests.
 
 **Done when:** logically distinct requests, including requests whose parameters
 have different values or types, cannot share a cache entry.
 
 ## 5. In-Memory Select Cache
 
-- [ ] Implement cache lookup before SQLite execution for cacheable reads.
+- [ ] Implement DashMap cache lookup before SQLx execution for cacheable reads.
 - [ ] Store successful eligible read results after SQLite execution.
 - [ ] Track entry size, creation time, last access, and mark state.
 - [ ] Invalidate all cached selects after each successful write as the initial
@@ -99,7 +108,8 @@ successful write prevents any stale cached result from being served.
 - [ ] Clear or advance marks on surviving entries so future collection cycles
   can distinguish recent use from old use.
 - [ ] Make collection safe when requests read or write cache entries
-  concurrently.
+  concurrently, using DashMap entry operations without holding references
+  across async await points.
 - [ ] Record collection duration, entry count before and after, bytes reclaimed,
   and number of entries swept.
 
@@ -111,6 +121,8 @@ unused entries are reclaimed, and configured cache limits remain bounded.
 - [ ] Define the long-poll endpoint, request filter, response schema, timeout
   status, and event schema in the public API documentation.
 - [ ] Implement a registry of pending waiters with cancellation-safe cleanup.
+- [ ] Use a Tokio `broadcast` channel to publish change events to concurrent
+  waiters, applying `tokio::time::timeout` to each wait.
 - [ ] Publish change events only after successful relevant writes commit.
 - [ ] Deliver matching events to waiting requests and remove completed waiters.
 - [ ] Implement a configurable maximum wait duration and normal timeout
@@ -127,8 +139,8 @@ write, time out without an event, and cancel without leaving server state.
 
 - [ ] Add health and readiness checks that distinguish a running process from
   an available SQLite dependency.
-- [ ] Emit structured logs for request completion, database errors, cache
-  behavior, and long-poll lifecycle events.
+- [ ] Emit structured Tracing logs for request completion, database errors,
+  cache behavior, and long-poll lifecycle events.
 - [ ] Expose metrics or a diagnostics endpoint for request count and latency,
   SQLite failures, cache counters, cache size, and active long-poll waiters.
 - [ ] Document all configuration values, defaults, validation rules, and safe

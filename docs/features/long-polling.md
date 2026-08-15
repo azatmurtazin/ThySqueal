@@ -7,6 +7,13 @@ repeatedly issuing short-interval requests. It is intended for simple clients
 that need timely change notification but do not require a persistent streaming
 protocol.
 
+## Implementation
+
+Tokio manages the asynchronous waiting lifecycle. Successful writes publish
+bounded change events through a Tokio `broadcast` channel; each long-poll
+request subscribes, filters received events, and is bounded with
+`tokio::time::timeout`. Dropping a request future removes its subscription.
+
 ## Request Lifecycle
 
 The long-poll endpoint and event filter are defined as part of the public API.

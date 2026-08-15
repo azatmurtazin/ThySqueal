@@ -6,6 +6,13 @@ ThySqueal exposes SQLite operations through a JSON HTTP interface. The API is
 intended for clients that need a simple remote SQL boundary and a stable,
 machine-readable response format.
 
+## Implementation
+
+Axum supplies the router, `POST /squeal` handler, JSON extractors, and shared
+application state. Serde and `serde_json` define and serialize the request,
+response, and error types. Tower and `tower-http` enforce request-size and
+timeout limits, attach request IDs, catch panics, and emit HTTP tracing data.
+
 ## Endpoint
 
 `POST /squeal` accepts one SQL statement and its bound parameters.

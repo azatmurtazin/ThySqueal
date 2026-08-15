@@ -4,6 +4,13 @@ ThySqueal is a lightweight JSON-over-HTTP server for executing parameterized
 SQL against SQLite. It includes an in-memory cache for recent `SELECT` queries
 and support for long-polling clients.
 
+## Technology
+
+The server is written in Rust using Axum and Tokio. It uses Serde for JSON,
+SQLx for asynchronous SQLite access, Tower middleware for HTTP limits and
+request tracing, and DashMap for the custom mark-and-sweep query cache. See the
+[implementation TODO](docs/TODO.md) for the complete dependency plan.
+
 ## Documentation
 
 - [Product requirements](docs/PRD.md) — project goals, API outline, storage,
