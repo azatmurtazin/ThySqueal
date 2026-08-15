@@ -3,7 +3,7 @@ use axum::{
     extract::State,
     http::{HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use thiserror::Error;
 use tower::ServiceBuilder;
@@ -28,6 +28,7 @@ pub(crate) fn router(state: AppState, config: &Config) -> Router {
     Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(readiness))
+        .route("/api/query", post(crate::query::execute_query))
         .with_state(state)
         .layer(
             ServiceBuilder::new()

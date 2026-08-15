@@ -44,6 +44,20 @@ impl TryFrom<JsonValue> for Value {
     }
 }
 
+impl From<Value> for JsonValue {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Null => Self::Null,
+            Value::Boolean(boolean) => Self::Bool(boolean),
+            Value::Integer(integer) => Self::Number(integer.into()),
+            Value::Float(float) => serde_json::Number::from_f64(float)
+                .map(Self::Number)
+                .unwrap_or(Self::Null),
+            Value::Text(text) => Self::String(text),
+        }
+    }
+}
+
 impl<'q> Encode<'q, Sqlite> for Value {
     fn encode_by_ref(
         &self,

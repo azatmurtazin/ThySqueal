@@ -51,22 +51,26 @@ query rows, and receive correctly typed execution results.
 
 ## 3. JSON API: `POST /api/query`
 
-- [ ] Set up Axum routes, extractors, application state, and Serde JSON
+- [x] Set up Axum routes, extractors, application state, and Serde JSON
   request/response types.
-- [ ] Implement request validation requiring exactly one of a non-empty `sql`
-  string or a `squeal` object; accept `params` only with raw `sql`.
-- [ ] Bind raw `params` and Squeal literal values through SQLite's parameter
-  API; never construct SQL by interpolating client data.
-- [ ] Implement the response envelope with `meta` and `rows` for every
+- [x] Implement request validation requiring exactly one of a non-empty `sql`
+  string or a `squeal` object; accept `params` only with raw `sql`. A `squeal`
+  request is recognized and rejected with a `squeal_unsupported` error until
+  the Squeal compiler lands.
+- [x] Bind raw `params` through SQLite's parameter API; never construct SQL by
+  interpolating client data. Squeal literal values are bound after the Squeal
+  compiler lands.
+- [x] Implement the response envelope with `meta` and `rows` for every
   successful statement.
-- [ ] Return column names and row count for row-producing statements.
-- [ ] Return affected-row count and last inserted row ID where meaningful for
+- [x] Return column names and row count for row-producing statements.
+- [x] Return affected-row count and last inserted row ID where meaningful for
   non-row statements, with `rows: []`.
-- [ ] Define stable JSON error objects containing a machine-readable code and a
+- [x] Define stable JSON error objects containing a machine-readable code and a
   safe, client-useful message.
 - [ ] Map invalid JSON and validation errors to `400`, rejected SQL policy to
   `422`, unavailable database to `503`, and unexpected failures to `500`.
-- [ ] Set response content type and add Tower request body-size and request
+  (`400`, `503`, and `500` are mapped; `422` waits for the SQL policy.)
+- [x] Set response content type and add Tower request body-size and request
   timeout limits.
 
 **Done when:** a client can execute parameterized raw `SELECT`, `INSERT`, and

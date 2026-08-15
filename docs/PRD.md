@@ -45,6 +45,9 @@ Raw SQL request:
 `params` is optional and contains values bound to the SQL statement. The API
 must use parameter binding rather than interpolating values into SQL text.
 
+`db` is an optional string selecting one of the configured named SQLite
+databases; when omitted it defaults to `main`.
+
 Squeal request:
 
 ```json
@@ -77,7 +80,9 @@ Successful response:
 `meta` contains information about the execution and result set, including
 column metadata when rows are returned. `rows` contains result records; it is
 an empty array for statements that produce no rows. Errors must use a clear
-JSON error response and an appropriate HTTP status code.
+JSON error response with a stable, machine-readable code and an appropriate
+HTTP status code: `400` for invalid requests, `503` when the database cannot
+serve requests, and `500` for unexpected failures.
 
 ## Data Storage
 

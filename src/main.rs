@@ -3,6 +3,7 @@ mod config;
 mod database;
 mod execution;
 mod logging;
+mod query;
 mod shutdown;
 mod value;
 

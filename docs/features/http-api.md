@@ -20,6 +20,10 @@ timeout limits, attach request IDs, catch panics, and emit HTTP tracing data.
 
 Requests must use `Content-Type: application/json`.
 
+`db` is an optional string naming the configured SQLite database to execute
+against; when omitted it defaults to `main`. An unknown database name is a
+client error.
+
 ### Raw SQL
 
 `sql` must be a non-empty string. `params` is optional; when omitted, it
@@ -28,6 +32,7 @@ interpolated into the SQL string.
 
 ```json
 {
+  "db": "main",
   "sql": "SELECT id, title FROM posts WHERE author_id = ?",
   "params": [42]
 }
@@ -50,7 +55,9 @@ never becomes generated SQL text.
 }
 ```
 
-See the [Squeal query language](squeal.md) for the structured-language
+Squeal is recognized by the server but is not yet supported; such requests
+currently fail with a `squeal_unsupported` error until the Squeal compiler
+lands. See the [Squeal query language](squeal.md) for the structured-language
 contract. `params` is accepted only with raw `sql`; Squeal encodes its values
 in the Squeal object.
 
@@ -94,10 +101,22 @@ parameter shapes; `422 Unprocessable Content` for SQL rejected by policy;
 `500 Internal Server Error` for unexpected failures; and `503 Service
 Unavailable` when the database cannot serve requests.
 
+Error codes are stable and machine-readable. The full mapping:
+
+| HTTP status | Error code | Condition |
+| --- | --- | --- |
+| `400` | `invalid_request` | Invalid JSON, missing or conflicting fields, empty `sql`, invalid parameter shapes. |
+| `400` | `squeal_unsupported` | A `squeal` field was supplied before the Squeal compiler is available. |
+| `400` | `unknown_database` | The `db` field names a database that is not configured. |
+| `400` | `invalid_sql` | SQL syntax, `no such table`, or `no such column` failures. |
+| `400` | `constraint_violation` | A `UNIQUE`, `NOT NULL`, `PRIMARY KEY`, `FOREIGN KEY`, or `CHECK` constraint failed. |
+| `400` | `unsupported_column` | A result column has a type the value model cannot represent, such as a blob. |
+| `503` | `unavailable` | The database is locked or the pool cannot serve requests. |
+| `500` | `execution_failed` | Any unexpected execution failure. |
+
 ## Acceptance Criteria
 
-- A client can execute allowed raw SQL and Squeal queries through
-  `POST /api/query`.
+- A client can execute allowed raw SQL queries through `POST /api/query`.
 - Parameter values never change SQL syntax through string interpolation.
 - Responses have a consistent JSON shape for both row and non-row statements.
 - Invalid requests and execution failures provide safe JSON error responses.
