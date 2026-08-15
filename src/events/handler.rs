@@ -1,3 +1,5 @@
+mod response;
+
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -7,11 +9,13 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::app::AppState;
 use crate::events::{ChangeEvent, limits::AcquireError};
 use crate::query::QueryError;
+
+use self::response::{Error, EventsMeta, EventsResponse};
 
 const MAX_EVENTS_PER_RESPONSE: u32 = 100;
 
@@ -56,14 +60,18 @@ pub(crate) async fn wait_for_event(
     let _guard = match state.waiters.try_acquire(addr) {
         Ok(guard) => guard,
         Err(AcquireError::Total) => {
+            state.metrics.record_long_poll_rejected_total();
             return Error::TooManyWaiters.into_response();
         }
         Err(AcquireError::PerClient) => {
+            state.metrics.record_long_poll_rejected_per_client();
             return Error::PerClientWaitersExceeded.into_response();
         }
     };
+    state.metrics.record_long_poll_wait();
 
     let outcome = wait(&state, database_name.clone(), params.table, limit).await;
+    tracing::debug!(database = %database_name, ?outcome, "long-poll wait finished");
 
     match outcome {
         WaitOutcome::Events(events) => (
@@ -76,21 +84,31 @@ pub(crate) async fn wait_for_event(
             }),
         )
             .into_response(),
-        WaitOutcome::Timeout(events) if !events.is_empty() => (
-            StatusCode::OK,
-            Json(EventsResponse {
-                meta: EventsMeta {
-                    database: database_name,
-                },
-                events,
-            }),
-        )
-            .into_response(),
-        WaitOutcome::Timeout(_) => Error::Timeout.into_response(),
-        WaitOutcome::Shutdown => Error::ShuttingDown.into_response(),
+        WaitOutcome::Timeout(events) if !events.is_empty() => {
+            state.metrics.record_long_poll_timeout();
+            (
+                StatusCode::OK,
+                Json(EventsResponse {
+                    meta: EventsMeta {
+                        database: database_name,
+                    },
+                    events,
+                }),
+            )
+                .into_response()
+        }
+        WaitOutcome::Timeout(_) => {
+            state.metrics.record_long_poll_timeout();
+            Error::Timeout.into_response()
+        }
+        WaitOutcome::Shutdown => {
+            state.metrics.record_long_poll_shutdown();
+            Error::ShuttingDown.into_response()
+        }
     }
 }
 
+#[derive(Debug)]
 enum WaitOutcome {
     Events(Vec<ChangeEvent>),
     Timeout(Vec<ChangeEvent>),
@@ -148,68 +166,4 @@ fn table_matches(filter: &Option<String>, event_table: &Option<String>) -> bool 
             Some(event_table) => filter == event_table,
         },
     }
-}
-
-#[derive(Debug, Serialize)]
-struct EventsResponse {
-    meta: EventsMeta,
-    events: Vec<ChangeEvent>,
-}
-
-#[derive(Debug, Serialize)]
-struct EventsMeta {
-    database: String,
-}
-
-#[derive(Debug)]
-enum Error {
-    Timeout,
-    TooManyWaiters,
-    PerClientWaitersExceeded,
-    ShuttingDown,
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        let (status, code, message) = match self {
-            Self::Timeout => (
-                StatusCode::REQUEST_TIMEOUT,
-                "long_poll_timeout",
-                "no change event arrived within the configured timeout",
-            ),
-            Self::TooManyWaiters => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "too_many_waiters",
-                "the maximum number of concurrent long-poll waiters is reached",
-            ),
-            Self::PerClientWaitersExceeded => (
-                StatusCode::TOO_MANY_REQUESTS,
-                "too_many_waiters",
-                "this client already has the maximum number of long-poll waiters",
-            ),
-            Self::ShuttingDown => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "shutting_down",
-                "the server is shutting down",
-            ),
-        };
-        (
-            status,
-            Json(ErrorBody {
-                error: ErrorDetail { code, message },
-            }),
-        )
-            .into_response()
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorBody {
-    error: ErrorDetail,
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorDetail {
-    code: &'static str,
-    message: &'static str,
 }

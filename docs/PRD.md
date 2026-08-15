@@ -121,6 +121,16 @@ serve requests, and `500` for unexpected failures.
 - Concurrent waiters are bounded globally and per client to prevent idle or slow
   clients from exhausting connections.
 
+## Diagnostics
+
+- The server exposes health and readiness endpoints that distinguish a running
+  process from an available SQLite dependency.
+- A JSON diagnostics endpoint reports request count and latency, SQLite
+  execution counts and failures, per-database cache counters and size, and
+  active long-poll waiters and limits.
+- An HTML dashboard renders the diagnostics data for operators, with no build
+  tooling or server-side rendering required.
+
 ## Testing
 
 - End-to-end tests are written in Python.

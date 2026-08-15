@@ -32,6 +32,7 @@ fn events_router(
         waiters: Arc::new(WaiterLimits::new(max_waiters, max_waiters_per_client)),
         shutdown: shutdown_rx,
         long_poll_timeout,
+        metrics: Arc::new(crate::metrics::Metrics::new()),
     };
     (crate::app::router(state, &Config::default()), shutdown_tx)
 }

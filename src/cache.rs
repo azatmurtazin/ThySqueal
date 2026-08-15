@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
+use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::value::Value;
@@ -46,7 +47,7 @@ struct Counters {
     swept_entries: AtomicU64,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub(crate) struct CounterSnapshot {
     pub(crate) hits: u64,
     pub(crate) misses: u64,
@@ -55,7 +56,6 @@ pub(crate) struct CounterSnapshot {
     pub(crate) collection_runs: u64,
     pub(crate) swept_entries: u64,
 }
-
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct CacheSettings {
     pub(crate) max_entries: u64,
@@ -106,6 +106,14 @@ impl SelectCache {
 
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    pub(crate) fn bytes(&self) -> u64 {
+        self.bytes.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn max_entries(&self) -> u64 {
+        self.settings.max_entries
     }
 
     pub(crate) fn lookup(&self, key: &CacheKey) -> Option<Arc<CachedResult>> {

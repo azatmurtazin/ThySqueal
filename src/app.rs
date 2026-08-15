@@ -23,6 +23,7 @@ use uuid::Uuid;
 use crate::config::Config;
 use crate::database::Registry;
 use crate::events::WaiterLimits;
+use crate::metrics;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -30,14 +31,21 @@ pub(crate) struct AppState {
     pub(crate) waiters: Arc<WaiterLimits>,
     pub(crate) shutdown: watch::Receiver<bool>,
     pub(crate) long_poll_timeout: Duration,
+    pub(crate) metrics: Arc<metrics::Metrics>,
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {
+    let metrics = Arc::clone(&state.metrics);
     Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(readiness))
         .route("/api/query", post(crate::query::execute_query))
         .route("/api/events", get(crate::events::wait_for_event))
+        .route(
+            "/api/diagnostics",
+            get(crate::diagnostics::diagnostics_json),
+        )
+        .route("/diagnostics", get(crate::diagnostics::diagnostics_page))
         .with_state(state)
         .layer(
             ServiceBuilder::new()
@@ -51,7 +59,8 @@ pub(crate) fn router(state: AppState, config: &Config) -> Router {
                 .layer(TimeoutLayer::with_status_code(
                     StatusCode::REQUEST_TIMEOUT,
                     config.request_timeout(),
-                )),
+                ))
+                .layer(metrics::MetricsLayer::new(metrics)),
         )
 }
 

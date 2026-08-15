@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThySqueal · Diagnostics</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style>
+  :root { --pico-font-size: 92%; }
+  body { padding: 1.5rem 2rem; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  header hgroup { margin-bottom: 0; }
+  header h1 { margin-bottom: 0.25rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+  section.grid { margin-top: 1rem; }
+  article { margin: 0; padding: 1rem 1.2rem; }
+  article h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--pico-muted-color); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat { font-size: 1.9rem; font-weight: 700; line-height: 1.15; }
+  .stat small { font-size: 0.9rem; color: var(--pico-muted-color); font-weight: 400; }
+  .sub { color: var(--pico-muted-color); font-size: 0.85rem; }
+  .badge { display: inline-block; padding: 0.1em 0.45em; border-radius: 0.4em; font-size: 0.8rem; color: #fff; }
+  .ok { background: #1d8a4e; }
+  .warn { background: #b26a00; }
+  .err { background: #b4232d; }
+  .error-box { display: none; }
+  .error-box article { border-left: 0.3rem solid var(--pico-del-color); }
+  table td small { color: var(--pico-muted-color); }
+  footer { margin-top: 1.5rem; color: var(--pico-muted-color); font-size: 0.85rem; }
+  .controls { display: flex; align-items: flex-end; gap: 1rem; }
+  .controls select { width: auto; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<header>
+  <hgroup>
+    <h1>ThySqueal</h1>
+    <p id="server-line" class="sub">Diagnostics</p>
+  </hgroup>
+  <div class="controls">
+    <label for="refresh">Auto-refresh
+      <select id="refresh">
+        <option value="0">Off</option>
+        <option value="2" selected>2s</option>
+        <option value="5">5s</option>
+        <option value="10">10s</option>
+      </select>
+    </label>
+    <button id="reload" class="secondary" style="width:auto; margin-bottom:0;">Refresh</button>
+  </div>
+</header>
+
+<div id="error-box" class="error-box">
+  <article>
+    <h2>Could not reach /api/diagnostics</h2>
+    <p id="error-text" class="sub"></p>
+  </article>
+</div>
+
+<section class="grid" id="requests"></section>
+<section class="grid" id="sqlite"></section>
+<section class="grid" id="longpoll"></section>
+
+<h2>Databases</h2>
+<div class="overflow-auto">
+  <table id="databases">
+    <thead>
+      <tr><th>Database</th><th>Pool</th><th>Cache entries</th><th>Cache bytes</th><th>Hits</th><th>Misses</th><th>Stores</th><th>Invalidations</th><th>Collections</th><th>Swept</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<footer id="footer"></footer>
+
+<script>
+const fmt = (n) => Number(n).toLocaleString();
+const ms = (v) => `${Number(v).toFixed(1)} ms`;
+
+function badge(code) {
+  const cls = code.startsWith('2') ? 'ok' : code.startsWith('4') ? 'warn' : 'err';
+  return `<span class="badge ${cls}">${code}</span>`;
+}
+
+function card(title, statHtml, subHtml) {
+  return `<article><h3>${title}</h3><div class="stat">${statHtml}</div><div class="sub">${subHtml || ''}</div></article>`;
+}
+
+function render(data) {
+  const started = new Date(data.started_at_millis).toLocaleString();
+  document.getElementById('server-line').textContent =
+    `Started ${started} · Uptime ${fmt(Math.floor(data.uptime_seconds))}s`;
+
+  const r = data.requests;
+  const l = r.latency;
+  document.getElementById('requests').innerHTML = [
+    card('Requests', fmt(r.total), `in-flight ${fmt(r.in_flight)}`),
+    card('Responses', `${badge('2xx')} ${fmt(r.responses_2xx)} ${badge('4xx')} ${fmt(r.responses_4xx)} ${badge('5xx')} ${fmt(r.responses_5xx)}`),
+    card('Latency', ms(l.p50_ms), `mean ${ms(l.mean_ms)} · p90 ${ms(l.p90_ms)} · p99 ${ms(l.p99_ms)} · max ${ms(l.max_ms)}`),
+  ].join('');
+
+  document.getElementById('sqlite').innerHTML =
+    card('SQLite', fmt(data.sqlite.executions), `errors ${fmt(data.sqlite.errors)}`);
+
+  const p = data.long_poll;
+  document.getElementById('longpoll').innerHTML = [
+    card('Active waiters', fmt(p.active), `max ${fmt(p.max)} · per-client ${fmt(p.max_per_client)}`),
+    card('Waits', fmt(p.waits), `timeouts ${fmt(p.timeouts)} · shutdowns ${fmt(p.shutdowns)}`),
+    card('Rejected', fmt(p.rejected_total + p.rejected_per_client), `total ${fmt(p.rejected_total)} · per-client ${fmt(p.rejected_per_client)}`),
+    card('Events published', fmt(p.events_published)),
+  ].join('');
+
+  const body = document.querySelector('#databases tbody');
+  body.innerHTML = data.databases.map((db) => {
+    const ratio = db.cache_max_entries > 0 ? (db.cache_entries / db.cache_max_entries) : 0;
+    return `<tr>
+      <td><strong>${escapeHtml(db.name)}</strong></td>
+      <td>${fmt(db.pool_connections)} conns · ${fmt(db.pool_idle)} idle</td>
+      <td>${fmt(db.cache_entries)} <small>(${(ratio * 100).toFixed(0)}% of ${fmt(db.cache_max_entries)})</small></td>
+      <td>${fmt(db.cache_bytes)} B</td>
+      <td>${fmt(db.counters.hits)}</td>
+      <td>${fmt(db.counters.misses)}</td>
+      <td>${fmt(db.counters.stores)}</td>
+      <td>${fmt(db.counters.invalidations)}</td>
+      <td>${fmt(db.counters.collection_runs)}</td>
+      <td>${fmt(db.counters.swept_entries)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('footer').textContent = `Last refreshed ${new Date().toLocaleTimeString()}`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+async function refresh() {
+  try {
+    const response = await fetch('/api/diagnostics');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    document.getElementById('error-box').style.display = 'none';
+    render(data);
+  } catch (error) {
+    document.getElementById('error-text').textContent = String(error);
+    document.getElementById('error-box').style.display = 'block';
+  }
+}
+
+const refreshSelect = document.getElementById('refresh');
+let timer = null;
+function schedule() {
+  if (timer) clearInterval(timer);
+  const seconds = Number(refreshSelect.value);
+  if (seconds > 0) timer = setInterval(refresh, seconds * 1000);
+}
+refreshSelect.addEventListener('change', schedule);
+document.getElementById('reload').addEventListener('click', refresh);
+
+schedule();
+refresh();
+</script>
+</body>
+</html>

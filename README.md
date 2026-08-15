@@ -23,6 +23,7 @@ request tracing, and DashMap for the custom mark-and-sweep query cache. See the
 - [SQLite storage](docs/features/sqlite-storage.md)
 - [In-memory select cache](docs/features/select-cache.md)
 - [Long polling](docs/features/long-polling.md)
+- [Diagnostics and observability](docs/features/diagnostics.md)
 - [Python end-to-end testing](docs/features/end-to-end-testing.md)
 
 ## License

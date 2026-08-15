@@ -1,7 +1,7 @@
 mod error;
 mod response;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::sync::Arc;
 
@@ -86,6 +86,7 @@ pub(crate) async fn execute_query(
 
     match execution::execute(&database.pool, &parsed.sql, &parsed.params).await {
         Ok(result) => {
+            state.metrics.record_sqlite();
             if is_write(&classification.classes) {
                 database.cache.invalidate_all();
                 let event = events::ChangeEvent {
@@ -93,7 +94,9 @@ pub(crate) async fn execute_query(
                     table: events::table_of(&parsed.sql),
                     at: events::now_millis(),
                 };
-                let _ = database.events.send(event);
+                if database.events.send(event).is_ok() {
+                    state.metrics.record_event_published();
+                }
             }
             if classification.cacheable
                 && let Some(cached) = store_cached_result(&database.cache, key, &result)
@@ -106,7 +109,11 @@ pub(crate) async fn execute_query(
             }
             (StatusCode::OK, Json(response::build_response(&result))).into_response()
         }
-        Err(error) => QueryError::Execution(error).into_response(),
+        Err(error) => {
+            state.metrics.record_sqlite_error();
+            tracing::debug!(database = %parsed.db, %error, "sqlite execution failed");
+            QueryError::Execution(error).into_response()
+        }
     }
 }
 

@@ -74,6 +74,7 @@ pub(crate) fn test_router_with_state(
         waiters: Arc::new(WaiterLimits::new(max_waiters, max_waiters_per_client)),
         shutdown,
         long_poll_timeout,
+        metrics: Arc::new(crate::metrics::Metrics::new()),
     };
     crate::app::router(state, &Config::default())
 }

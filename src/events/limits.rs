@@ -26,6 +26,18 @@ impl WaiterLimits {
         }
     }
 
+    pub(crate) fn active(&self) -> u64 {
+        self.active.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn max(&self) -> u64 {
+        self.max_total
+    }
+
+    pub(crate) fn max_per_client(&self) -> u64 {
+        self.max_per_client
+    }
+
     pub(crate) fn try_acquire(&self, addr: SocketAddr) -> Result<WaiterGuard<'_>, AcquireError> {
         if self.active.fetch_add(1, Ordering::Relaxed) >= self.max_total {
             self.active.fetch_sub(1, Ordering::Relaxed);

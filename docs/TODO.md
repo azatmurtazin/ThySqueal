@@ -149,13 +149,15 @@ write, time out without an event, and cancel without leaving server state.
 
 ## 8. Observability and Operations
 
-- [ ] Add health and readiness checks that distinguish a running process from
+- [x] Add health and readiness checks that distinguish a running process from
   an available SQLite dependency.
-- [ ] Emit structured Tracing logs for request completion, database errors,
+- [x] Emit structured Tracing logs for request completion, database errors,
   cache behavior, and long-poll lifecycle events.
-- [ ] Expose metrics or a diagnostics endpoint for request count and latency,
+- [x] Expose metrics or a diagnostics endpoint for request count and latency,
   SQLite failures, cache counters, cache size, and active long-poll waiters.
-- [ ] Document all configuration values, defaults, validation rules, and safe
+- [x] Render diagnostics in an HTML dashboard served by the binary with plain
+  JavaScript and no build tooling.
+- [x] Document all configuration values, defaults, validation rules, and safe
   production recommendations.
 - [ ] Document SQL access policy, limits, and operational caveats of serving
   SQLite over HTTP.

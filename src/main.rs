@@ -2,9 +2,11 @@ mod app;
 mod cache;
 mod config;
 mod database;
+mod diagnostics;
 mod events;
 mod execution;
 mod logging;
+mod metrics;
 mod policy;
 mod query;
 mod shutdown;
@@ -56,6 +58,7 @@ async fn run() -> Result<(), StartupError> {
         )),
         shutdown: shutdown_rx,
         long_poll_timeout: config.long_poll_timeout(),
+        metrics: Arc::new(metrics::Metrics::new()),
     };
     let application = app::router(state, &config);
     let listener = tokio::net::TcpListener::bind(config.bind_address).await?;

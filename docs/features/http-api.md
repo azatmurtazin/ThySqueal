@@ -150,6 +150,46 @@ when a client exceeds its per-client waiter limit, `503 too_many_waiters` when
 the total waiter limit is reached, and `503 shutting_down` during graceful
 shutdown.
 
+## Diagnostics: `GET /api/diagnostics`
+
+`GET /api/diagnostics` reports server health, request, SQLite, cache, and
+long-poll metrics as JSON with no query parameters:
+
+```json
+{
+  "started_at_millis": 1710000000000,
+  "uptime_seconds": 612.4,
+  "requests": {
+    "total": 48,
+    "in_flight": 1,
+    "responses_2xx": 40,
+    "responses_4xx": 7,
+    "responses_5xx": 1,
+    "latency": { "mean_ms": 12.3, "p50_ms": 5.0, "p90_ms": 100.0, "p99_ms": 2000.0, "max_ms": 4102.7 }
+  },
+  "sqlite": { "executions": 31, "errors": 2 },
+  "long_poll": {
+    "active": 0, "max": 1000, "max_per_client": 10, "waits": 6, "timeouts": 5,
+    "shutdowns": 0, "rejected_total": 0, "rejected_per_client": 0, "events_published": 4
+  },
+  "databases": [
+    {
+      "name": "main",
+      "pool_connections": 2,
+      "pool_idle": 1,
+      "cache_entries": 3,
+      "cache_bytes": 412,
+      "cache_max_entries": 1000,
+      "counters": { "hits": 12, "misses": 6, "stores": 5, "invalidations": 2, "collection_runs": 0, "swept_entries": 0 }
+    }
+  ]
+}
+```
+
+`GET /diagnostics` serves an HTML dashboard that renders the same data with
+plain JavaScript. See [Diagnostics and Observability](diagnostics.md) for the
+full field reference and the dashboard behavior.
+
 ## Acceptance Criteria
 
 - A client can execute allowed raw SQL and Squeal queries through
