@@ -17,6 +17,11 @@ mark-and-sweep policy directly. Until that collector lands, `store` simply
 skips new entries once the configured `max_entries` count is reached, so the
 cache stays bounded without evicting anything.
 
+Every database owns a separate cache instance, so entries, capacity, and
+invalidation never leak across databases. The database's `cache.max_entries`
+configures it; a value of `0` disables caching for that database, and an
+omitted value inherits the global `cache.max_entries` default.
+
 ## Eligibility and Keys
 
 - Only a single, read-only `SELECT` statement (raw SQL or compiled Squeal) is a
@@ -27,11 +32,12 @@ cache stays bounded without evicting anything.
   `changes`, `total_changes`, `last_insert_rowid`, the date/time family
   (`strftime`, `date`, `time`, `datetime`, `julianday`, `unixepoch`), and the
   `CURRENT_*`/`LOCALTIME*` keyword forms.
-- The cache key is a byte string built from the database name, the canonical
-  compiled SQL, and a type-preserving, length-framed serialization of every
-  bound parameter (`cache::build_key`). Parameters are tagged by type, so
-  `1`, `1.0`, `"1"`, `true`, and `null` never collide even though SQLite may
-  coerce them.
+- The cache key is a byte string built from the canonical compiled SQL and a
+  type-preserving, length-framed serialization of every bound parameter
+  (`cache::build_key`). Parameters are tagged by type, so `1`, `1.0`, `"1"`,
+  `true`, and `null` never collide even though SQLite may coerce them. Keys are
+  scoped to a single database's cache, which keeps the key independent of the
+  database name.
 - Because Squeal is compiled to SQL before lookup, an equivalent raw-SQL request
   and Squeal request share a cache entry.
 
@@ -42,16 +48,18 @@ SQLite, returns the result, and stores it when eligible.
 ## Invalidation
 
 Any successful request whose statement classes include a write invalidates all
-cached reads, so a write can never leave stale results behind. This is the
-initial correctness-first policy; more targeted invalidation may be added only
-when it demonstrably preserves correctness.
+cached reads for that database, so a write can never leave stale results
+behind. Invalidation is scoped to the database that was written; other
+databases keep their cache entries. This is the initial correctness-first
+policy; more targeted invalidation may be added only when it demonstrably
+preserves correctness.
 
 ## Counters and Configuration
 
 Atomic counters track hits, misses, stores, invalidations, collection runs,
 and swept entries (`collection_runs` and `swept_entries` are reserved for the
-mark-and-sweep collector). The server wires `cache_max_entries` from the
-configuration into `SelectCache::new` at startup.
+mark-and-sweep collector). At startup, `database::open_all` wires each
+database's effective `cache.max_entries` into its own `SelectCache`.
 
 ## Mark-and-Sweep Collection
 

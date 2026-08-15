@@ -10,11 +10,11 @@ fn result() -> CachedResult {
 
 #[test]
 fn keys_distinguish_parameter_types() {
-    let integer = build_key("main", "SELECT ?", &[Value::Integer(1)]);
-    let float = build_key("main", "SELECT ?", &[Value::Float(1.0)]);
-    let text = build_key("main", "SELECT ?", &[Value::Text("1".to_owned())]);
-    let boolean = build_key("main", "SELECT ?", &[Value::Boolean(true)]);
-    let null = build_key("main", "SELECT ?", &[Value::Null]);
+    let integer = build_key("SELECT ?", &[Value::Integer(1)]);
+    let float = build_key("SELECT ?", &[Value::Float(1.0)]);
+    let text = build_key("SELECT ?", &[Value::Text("1".to_owned())]);
+    let boolean = build_key("SELECT ?", &[Value::Boolean(true)]);
+    let null = build_key("SELECT ?", &[Value::Null]);
 
     let keys = [integer, float, text, boolean, null];
     for (index, left) in keys.iter().enumerate() {
@@ -25,29 +25,22 @@ fn keys_distinguish_parameter_types() {
 }
 
 #[test]
-fn keys_include_database_and_sql() {
-    assert_ne!(
-        build_key("main", "SELECT 1", &[]),
-        build_key("other", "SELECT 1", &[])
-    );
-    assert_ne!(
-        build_key("main", "SELECT 1", &[]),
-        build_key("main", "SELECT 2", &[])
-    );
+fn keys_include_sql() {
+    assert_ne!(build_key("SELECT 1", &[]), build_key("SELECT 2", &[]));
 }
 
 #[test]
 fn keys_are_deterministic_for_equal_inputs() {
     assert_eq!(
-        build_key("main", "SELECT ?", &[Value::Text("x".to_owned())]),
-        build_key("main", "SELECT ?", &[Value::Text("x".to_owned())])
+        build_key("SELECT ?", &[Value::Text("x".to_owned())]),
+        build_key("SELECT ?", &[Value::Text("x".to_owned())])
     );
 }
 
 #[test]
 fn store_lookup_and_invalidate_round_trip() {
     let cache = SelectCache::new(100);
-    let key = build_key("main", "SELECT 1", &[]);
+    let key = build_key("SELECT 1", &[]);
     assert!(cache.lookup(&key).is_none());
 
     cache.store(key.clone(), result());
@@ -65,8 +58,8 @@ fn store_lookup_and_invalidate_round_trip() {
 #[test]
 fn store_skips_entries_when_at_capacity() {
     let cache = SelectCache::new(1);
-    cache.store(build_key("main", "SELECT 1", &[]), result());
-    cache.store(build_key("main", "SELECT 2", &[]), result());
+    cache.store(build_key("SELECT 1", &[]), result());
+    cache.store(build_key("SELECT 2", &[]), result());
     assert_eq!(cache.len(), 1);
     assert_eq!(cache.counters().stores, 1);
 }
@@ -74,7 +67,7 @@ fn store_skips_entries_when_at_capacity() {
 #[test]
 fn zero_capacity_stores_nothing() {
     let cache = SelectCache::new(0);
-    cache.store(build_key("main", "SELECT 1", &[]), result());
+    cache.store(build_key("SELECT 1", &[]), result());
     assert_eq!(cache.len(), 0);
     assert_eq!(cache.counters().stores, 0);
 }

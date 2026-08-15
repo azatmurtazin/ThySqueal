@@ -11,13 +11,11 @@ mod squeal;
 mod value;
 
 use std::process::ExitCode;
-use std::sync::Arc;
 
 use thiserror::Error;
 use tracing::info;
 
 use app::AppState;
-use cache::SelectCache;
 use config::Config;
 
 #[tokio::main]
@@ -36,8 +34,7 @@ async fn run() -> Result<(), StartupError> {
     let config_path = config::path_from_args()?;
     let config = Config::load(&config_path)?;
     let databases = database::open_all(&config).await?;
-    let cache = Arc::new(SelectCache::new(config.cache_max_entries()));
-    let state = AppState { databases, cache };
+    let state = AppState { databases };
     let application = app::router(state, &config);
     let listener = tokio::net::TcpListener::bind(config.bind_address).await?;
 

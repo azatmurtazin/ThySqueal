@@ -125,9 +125,8 @@ impl SelectCache {
     }
 }
 
-pub(crate) fn build_key(db: &str, sql: &str, params: &[Value]) -> CacheKey {
-    let mut key = Vec::with_capacity(db.len() + sql.len() + params.len() * 16);
-    push_str(&mut key, db);
+pub(crate) fn build_key(sql: &str, params: &[Value]) -> CacheKey {
+    let mut key = Vec::with_capacity(sql.len() + params.len() * 16);
     push_str(&mut key, sql);
     for param in params {
         match param {

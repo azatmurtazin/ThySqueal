@@ -5,7 +5,10 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use crate::cache::SelectCache;
-use crate::query::tests::{memory_pool, post_json, seed_items, test_router_with_cache};
+use crate::database::Database;
+use crate::query::tests::{
+    memory_pool, post_json, seed_items, test_router_with_cache, test_router_with_databases,
+};
 
 async fn seeded_cache(max_entries: u64) -> (axum::Router, Arc<SelectCache>) {
     let pool = memory_pool().await;
@@ -107,5 +110,74 @@ async fn keys_distinguish_parameter_types() {
 
     let counters = cache.counters();
     assert_eq!(counters.stores, 3);
+    assert_eq!(counters.hits, 0);
+}
+
+#[tokio::test]
+async fn write_on_one_database_does_not_invalidate_another() {
+    let pool_a = memory_pool().await;
+    seed_items(&pool_a).await;
+    let pool_b = memory_pool().await;
+    seed_items(&pool_b).await;
+    let cache_a = Arc::new(SelectCache::new(1000));
+    let cache_b = Arc::new(SelectCache::new(1000));
+    let databases = HashMap::from([
+        (
+            "alpha".to_owned(),
+            Database {
+                pool: pool_a,
+                cache: Arc::clone(&cache_a),
+            },
+        ),
+        (
+            "beta".to_owned(),
+            Database {
+                pool: pool_b,
+                cache: Arc::clone(&cache_b),
+            },
+        ),
+    ]);
+    let app = test_router_with_databases(databases);
+
+    let (status, _) = post_json(
+        &app,
+        json!({ "sql": "SELECT count(*) AS n FROM items", "db": "alpha" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cache_a.counters().stores, 1);
+
+    let (status, _) = post_json(
+        &app,
+        json!({ "sql": "INSERT INTO items (name, price) VALUES ('extra', 1.0)", "db": "beta" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = post_json(
+        &app,
+        json!({ "sql": "SELECT count(*) AS n FROM items", "db": "alpha" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert_eq!(cache_a.counters().invalidations, 0);
+    assert_eq!(cache_a.counters().hits, 1);
+    assert_eq!(cache_b.counters().invalidations, 1);
+    assert_eq!(cache_b.counters().hits, 0);
+}
+
+#[tokio::test]
+async fn disabled_cache_never_stores_or_hits() {
+    let (app, cache) = seeded_cache(0).await;
+
+    for _ in 0..2 {
+        let (status, _) =
+            post_json(&app, json!({ "sql": "SELECT name FROM items ORDER BY id" })).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let counters = cache.counters();
+    assert_eq!(counters.stores, 0);
     assert_eq!(counters.hits, 0);
 }

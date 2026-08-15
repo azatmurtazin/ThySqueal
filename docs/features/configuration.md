@@ -19,6 +19,8 @@ databases:
   - name: main
     path: "db/thy-squeal.db"
     max_connections: 5
+    cache:
+      max_entries: 1000
 
 request:
   body_limit_bytes: 1048576
@@ -40,10 +42,11 @@ cache:
 | `databases[].name` | `main` | Unique name used to select the database. |
 | `databases[].path` | `db/thy-squeal.db` | SQLite database file location; created if missing. |
 | `databases[].max_connections` | `5` | Maximum connections in the database's pool. |
+| `databases[].cache.max_entries` | global `cache.max_entries` | Upper bound for this database's cached select-query entries. Each database has its own cache. `0` disables caching for that database. |
 | `request.body_limit_bytes` | `1048576` | Maximum accepted request body size. |
 | `request.timeout_seconds` | `30` | Per-request timeout for the HTTP layer. |
 | `long_poll.timeout_seconds` | `30` | Maximum wait duration for a long-poll request. |
-| `cache.max_entries` | `1000` | Upper bound for cached select-query entries. |
+| `cache.max_entries` | `1000` | Default upper bound for cached select-query entries, inherited by databases that do not set their own `cache.max_entries`. |
 
 ## Validation
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use sqlx::{
     SqlitePool,
@@ -6,12 +6,19 @@ use sqlx::{
 };
 use thiserror::Error;
 
+use crate::cache::SelectCache;
 use crate::config::{Config, DatabaseConfig};
 
 #[cfg(test)]
 mod tests;
 
-pub(crate) type Registry = HashMap<String, SqlitePool>;
+pub(crate) type Registry = HashMap<String, Database>;
+
+#[derive(Clone)]
+pub(crate) struct Database {
+    pub(crate) pool: SqlitePool,
+    pub(crate) cache: Arc<SelectCache>,
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum OpenError {
@@ -20,15 +27,23 @@ pub(crate) enum OpenError {
 }
 
 pub(crate) async fn open_all(config: &Config) -> Result<Registry, OpenError> {
-    let mut pools = HashMap::new();
+    let mut databases = HashMap::new();
     for database in config.databases() {
         let pool = open(database).await.map_err(|source| OpenError::Database {
             name: database.name.clone(),
             source,
         })?;
-        pools.insert(database.name.clone(), pool);
+        databases.insert(
+            database.name.clone(),
+            Database {
+                pool,
+                cache: Arc::new(SelectCache::new(
+                    database.cache_max_entries(config.cache_max_entries()),
+                )),
+            },
+        );
     }
-    Ok(pools)
+    Ok(databases)
 }
 
 async fn open(database: &DatabaseConfig) -> Result<SqlitePool, sqlx::Error> {

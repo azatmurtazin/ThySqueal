@@ -16,6 +16,7 @@ use serde_json::Value as JsonValue;
 
 use crate::app::AppState;
 use crate::cache;
+use crate::cache::SelectCache;
 use crate::execution;
 use crate::policy;
 use crate::policy::StatementClass;
@@ -64,31 +65,31 @@ pub(crate) async fn execute_query(
         Err(error) => return QueryError::Policy(error).into_response(),
     };
 
-    let pool = match state.databases.get(&parsed.db) {
-        Some(pool) => pool,
+    let database = match state.databases.get(&parsed.db) {
+        Some(database) => database,
         None => return QueryError::UnknownDatabase(parsed.db).into_response(),
     };
 
-    let key = cache::build_key(&parsed.db, &parsed.sql, &parsed.params);
+    let key = cache::build_key(&parsed.sql, &parsed.params);
 
     if classification.cacheable {
-        if let Some(cached) = state.cache.lookup(&key) {
+        if let Some(cached) = database.cache.lookup(&key) {
             return (
                 StatusCode::OK,
                 Json(response::build_cached_response(&cached)),
             )
                 .into_response();
         }
-        state.cache.record_miss();
+        database.cache.record_miss();
     }
 
-    match execution::execute(pool, &parsed.sql, &parsed.params).await {
+    match execution::execute(&database.pool, &parsed.sql, &parsed.params).await {
         Ok(result) => {
             if is_write(&classification.classes) {
-                state.cache.invalidate_all();
+                database.cache.invalidate_all();
             }
             if classification.cacheable
-                && let Some(cached) = store_cached_result(&state, key, &result)
+                && let Some(cached) = store_cached_result(&database.cache, key, &result)
             {
                 return (
                     StatusCode::OK,
@@ -109,7 +110,7 @@ fn is_write(classes: &[StatementClass]) -> bool {
 }
 
 fn store_cached_result(
-    state: &AppState,
+    cache: &SelectCache,
     key: cache::CacheKey,
     result: &execution::ExecutionResult,
 ) -> Option<Arc<cache::CachedResult>> {
@@ -125,7 +126,7 @@ fn store_cached_result(
         columns: result.columns.clone(),
         rows,
     };
-    state.cache.store(key, cached)
+    cache.store(key, cached)
 }
 
 fn parse_request(request: QueryRequest) -> Result<ParsedQuery, QueryError> {

@@ -5,18 +5,22 @@
 bind_address: "127.0.0.1:5931"
 
 databases:
-  # general purpose db
+  # general purpose db; inherits the global cache.max_entries
   - name: main
     path: "db/thy-squeal.db"
     max_connections: 5
 
-  # heavy read db
+  # heavy read db; its own larger cache
   - name: catalog
     path: "db/catalog.db"
+    cache:
+      max_entries: 10000
 
-  # heavy write db
+  # heavy write db; select caching disabled
   - name: logs
     path: "db/logs.db"
+    cache:
+      max_entries: 0
 
 request:
   body_limit_bytes: 1048576

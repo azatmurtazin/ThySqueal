@@ -15,6 +15,16 @@ pub(crate) struct DatabaseConfig {
     pub(crate) name: String,
     pub(crate) path: PathBuf,
     pub(crate) max_connections: u32,
+    pub(crate) cache: Option<CacheConfig>,
+}
+
+impl DatabaseConfig {
+    pub(crate) fn cache_max_entries(&self, global_default: u64) -> u64 {
+        self.cache
+            .as_ref()
+            .map(|cache| cache.max_entries)
+            .unwrap_or(global_default)
+    }
 }
 
 impl Default for DatabaseConfig {
@@ -23,6 +33,7 @@ impl Default for DatabaseConfig {
             name: "main".to_owned(),
             path: PathBuf::from(DEFAULT_DATABASE_PATH),
             max_connections: DEFAULT_MAX_CONNECTIONS,
+            cache: None,
         }
     }
 }

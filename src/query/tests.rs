@@ -17,6 +17,7 @@ use tower::ServiceExt;
 use crate::app::AppState;
 use crate::cache::SelectCache;
 use crate::config::Config;
+use crate::database::Database;
 
 pub(crate) async fn memory_pool() -> SqlitePool {
     SqlitePoolOptions::new()
@@ -34,7 +35,23 @@ pub(crate) fn test_router_with_cache(
     databases: HashMap<String, SqlitePool>,
     cache: Arc<SelectCache>,
 ) -> Router {
-    crate::app::router(AppState { databases, cache }, &Config::default())
+    let databases = databases
+        .into_iter()
+        .map(|(name, pool)| {
+            (
+                name,
+                Database {
+                    pool,
+                    cache: Arc::clone(&cache),
+                },
+            )
+        })
+        .collect();
+    test_router_with_databases(databases)
+}
+
+pub(crate) fn test_router_with_databases(databases: HashMap<String, Database>) -> Router {
+    crate::app::router(AppState { databases }, &Config::default())
 }
 
 pub(crate) async fn seed_items(pool: &SqlitePool) {

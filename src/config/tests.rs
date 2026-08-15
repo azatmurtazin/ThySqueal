@@ -81,6 +81,28 @@ fn missing_databases_uses_default_database() {
 }
 
 #[test]
+fn parses_per_database_cache_configuration() {
+    let config = Config::from_str(
+        r#"
+        databases:
+          - name: main
+            path: "/tmp/main.db"
+            cache:
+              max_entries: 0
+          - name: catalog
+            path: "/tmp/catalog.db"
+        cache:
+          max_entries: 42
+        "#,
+    )
+    .expect("valid configuration");
+
+    let databases = config.databases();
+    assert_eq!(databases[0].cache_max_entries(42), 0);
+    assert_eq!(databases[1].cache_max_entries(42), 42);
+}
+
+#[test]
 fn rejects_invalid_configuration() {
     let result = Config::from_str("databases:\n  - name: main\n    max_connections: not-a-number");
 

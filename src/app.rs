@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     Router,
     extract::State,
@@ -18,14 +16,12 @@ use tower_http::{
 };
 use uuid::Uuid;
 
-use crate::cache::SelectCache;
 use crate::config::Config;
 use crate::database::Registry;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) databases: Registry,
-    pub(crate) cache: Arc<SelectCache>,
 }
 
 pub(crate) fn router(state: AppState, config: &Config) -> Router {
@@ -55,8 +51,8 @@ async fn health() -> StatusCode {
 }
 
 async fn readiness(State(state): State<AppState>) -> Result<StatusCode, ReadinessError> {
-    for pool in state.databases.values() {
-        sqlx::query("SELECT 1").execute(pool).await?;
+    for database in state.databases.values() {
+        sqlx::query("SELECT 1").execute(&database.pool).await?;
     }
     Ok(StatusCode::NO_CONTENT)
 }

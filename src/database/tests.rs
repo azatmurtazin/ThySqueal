@@ -11,6 +11,7 @@ async fn applies_deliberate_connection_options() {
         name: "main".to_owned(),
         path: path.clone(),
         max_connections: 1,
+        cache: None,
     };
     let pool = super::open(&database).await.expect("open database");
 
